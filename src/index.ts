@@ -32,13 +32,13 @@ const allowedToolsEnv = process.env.ALLOWED_TOOLS;
 const allTools = [
   {
     name: 'openai_generate_image',
-    description: "Generate images using OpenAI's image generation API",
+    description: "Generate images using OpenAI's image generation API. For transparency conversion, generate with solid white background (or black for dark objects/snowy scenes) to enable transparent background processing.",
     inputSchema: {
       type: 'object',
       properties: {
         prompt: {
           type: 'string',
-          description: 'Detailed description of the image to generate',
+          description: 'Detailed description of the image to generate. Include "plain white background" or "plain black background" for transparency conversion support.',
         },
         outputPath: {
           type: 'string',
@@ -75,13 +75,13 @@ const allTools = [
   },
   {
     name: 'gemini_generate_image',
-    description: "Generate images using Google's Gemini 2.5 Flash native image generation, supports multiple input images for variations",
+    description: "Generate images using Google's Gemini 2.5 Flash native image generation, supports multiple input images for variations. For transparency conversion, generate with solid white background (or black for dark objects/snowy scenes) to enable transparent background processing.",
     inputSchema: {
       type: 'object',
       properties: {
         prompt: {
           type: 'string',
-          description: 'Description of the image to generate',
+          description: 'Description of the image to generate. Include "plain white background" or "plain black background" for transparency conversion support.',
         },
         outputPath: {
           type: 'string',
@@ -102,13 +102,13 @@ const allTools = [
   },
   {
     name: 'falai_generate_image',
-    description: 'Generate high-quality images using FAL.ai\'s Qwen image generation model',
+    description: 'Generate high-quality images using FAL.ai\'s Qwen image generation model. For transparency conversion, generate with solid white background (or black for dark objects/snowy scenes) to enable transparent background processing.',
     inputSchema: {
       type: 'object',
       properties: {
         prompt: {
           type: 'string',
-          description: 'Detailed prompt for image generation',
+          description: 'Detailed prompt for image generation. Include "plain white background" or "plain black background" for transparency conversion support.',
         },
         outputPath: {
           type: 'string',
@@ -176,13 +176,13 @@ const allTools = [
   },
   {
     name: 'generate_character_sheet',
-    description: 'Generate character sheets from text descriptions or reference images using any available model',
+    description: 'Generate character sheets from text descriptions or reference images using any available model. Character sheets are generated with plain white backgrounds for transparency conversion support.',
     inputSchema: {
       type: 'object',
       properties: {
         characterDescription: {
           type: 'string',
-          description: 'Detailed description of the character',
+          description: 'Detailed description of the character. Character sheets will be generated with plain white background for transparency conversion.',
         },
         outputPath: {
           type: 'string',
@@ -244,13 +244,13 @@ const allTools = [
   },
   {
     name: 'generate_pixel_art_character',
-    description: 'Generate pixel art characters with specific dimensions for retro games, with optional transparent backgrounds',
+    description: 'Generate pixel art characters with specific dimensions for retro games, with optional transparent backgrounds. For transparency conversion, characters are generated with solid backgrounds (white by default, black for dark characters) to enable transparent background processing.',
     inputSchema: {
       type: 'object',
       properties: {
         characterDescription: {
           type: 'string',
-          description: 'Description of the pixel art character',
+          description: 'Description of the pixel art character. For transparent backgrounds, specify if black background is preferred for dark characters.',
         },
         outputPath: {
           type: 'string',
@@ -291,13 +291,13 @@ const allTools = [
   },
   {
     name: 'generate_texture',
-    description: 'Generate seamless textures for 3D environments and materials with optional transparent backgrounds for sprites/decals',
+    description: 'Generate seamless textures for 3D environments and materials with optional transparent backgrounds for sprites/decals. For transparent backgrounds, textures are generated with solid backgrounds (white by default, black for dark objects) to enable transparency conversion.',
     inputSchema: {
       type: 'object',
       properties: {
         textureDescription: {
           type: 'string',
-          description: 'Description of the texture (e.g., grass field, brick wall, wood planks, sprite object)',
+          description: 'Description of the texture (e.g., grass field, brick wall, wood planks, sprite object). For transparent backgrounds, specify if black background is preferred for dark objects.',
         },
         outputPath: {
           type: 'string',
