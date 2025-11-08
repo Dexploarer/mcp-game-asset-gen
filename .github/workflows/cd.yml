@@ -24,6 +24,27 @@ jobs:
       - name: Install dependencies
         run: npm ci
 
+      - name: Extract version from tag
+        run: echo "VERSION=${GITHUB_REF#refs/tags/v}" >> $GITHUB_ENV
+
+      - name: Configure Git
+        run: |
+          git config --global user.name "github-actions[bot]"
+          git config --global user.email "github-actions[bot]@users.noreply.github.com"
+
+      - name: Update version numbers
+        run: |
+          # Update the version in all files using the npm script
+          npm run version:update ${{ env.VERSION }}
+
+      - name: Commit version updates
+        run: |
+          git add package.json gemini-extension.json
+          git commit -m "Bump version to ${{ env.VERSION }}"
+
+          # Push the version update commit
+          git push origin main
+
       - name: Run Tests
         run: npm run test
 
