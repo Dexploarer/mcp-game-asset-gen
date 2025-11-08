@@ -1,11 +1,11 @@
 {
-  "name": "mcp-asset-gen",
+  "name": "mcp-game-asset-gen",
   "version": "0.0.7",
   "mcpServers": {
     "asset-gen": {
       "command": "npx",
       "args": [
-        "mcp-asset-gen"
+        "mcp-game-asset-gen"
       ]
     }
   }

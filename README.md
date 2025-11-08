@@ -15,7 +15,7 @@ A Model Context Protocol (MCP) server for generating various types of assets inc
 ```bash
 # Clone the repository
 git clone <repository-url>
-cd mcp-asset-gen
+cd mcp-game-asset-gen
 
 # Install dependencies
 npm install
@@ -240,7 +240,7 @@ generate_character_sheet \
 ## Project Structure
 
 ```
-mcp-asset-gen/
+mcp-game-asset-gen/
 ├── src/
 │   ├── index.ts          # Main server file
 │   └── server.test.ts    # Tests

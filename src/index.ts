@@ -450,7 +450,7 @@ const allTools = [
 
 const server = new Server(
   {
-    name: 'mcp-asset-gen',
+    name: 'mcp-game-asset-gen',
     version: '1.0.0',
   },
   {
