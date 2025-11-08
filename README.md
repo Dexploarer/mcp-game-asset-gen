@@ -49,28 +49,104 @@ The server provides tools and prompts for asset generation through the MCP proto
 
 ### Available Tools
 
-- `generate_image`: Generate images using various APIs
+#### Image Generation
+- `openai_generate_image`: Generate images using OpenAI's image generation API
   - Parameters:
-    - `prompt` (required): Text description of the image
-    - `provider` (required): 'openai', 'gemini', or 'fal'
-    - `width` (optional): Image width in pixels
-    - `height` (optional): Image height in pixels
+    - `prompt` (required): Detailed description of the image to generate
+    - `outputPath` (required): Path where the generated image should be saved
+    - `inputImagePath` (optional): Path to input image for editing/variation
+    - `size` (optional): Image dimensions ('1024x1024', '1792x1024', '1024x1792')
+    - `quality` (optional): Image quality level ('standard', 'hd')
+    - `style` (optional): Image style preference ('vivid', 'natural')
+    - `n` (optional): Number of images to generate (1-10)
 
-- `trellis_generate_3d_model`: Generate 3D models using FAL.ai Trellis
+- `gemini_generate_image`: Generate images using Google's Gemini 2.5 Flash native image generation
   - Parameters:
-    - `prompt` (required): Text description of the 3D model
-    - `input_image_uris` (optional): Array of base64 image URIs for reference (auto-generated if not provided)
-    - `output_path` (required): Path to save the generated 3D model (.glb or .gltf)
-    - `format` (optional): Output format ('glb' or 'gltf', default: 'glb')
-    - `variant` (optional): Model variant ('single' or 'multi', default: auto-selected)
+    - `prompt` (required): Description of the image to generate
+    - `outputPath` (required): Path where the generated image should be saved
+    - `inputImagePaths` (optional): Array of paths to input images for variation/combination
+    - `model` (optional): Gemini model to use (default: gemini-2.5-flash-image)
 
-- `hunyuan3d_generate_3d_model`: Generate 3D models using FAL.ai Hunyuan3D 2.0
+- `falai_generate_image`: Generate high-quality images using FAL.ai's Qwen image generation model
   - Parameters:
-    - `prompt` (required): Text description of the 3D model
-    - `input_image_uris` (optional): Array of base64 image URIs for reference (auto-generated if not provided)
-    - `output_path` (required): Path to save the generated 3D model (.glb or .gltf)
-    - `format` (optional): Output format ('glb' or 'gltf', default: 'glb')
-    - `variant` (optional): Model variant ('single', 'multi', 'single-turbo', or 'multi-turbo', default: auto-selected)
+    - `prompt` (required): Detailed prompt for image generation
+    - `outputPath` (required): Path where the generated image should be saved
+    - `image_size` (optional): Image size preset ('square_hd', 'square', 'portrait_4_3', 'portrait_16_9', 'landscape_4_3', 'landscape_16_9')
+    - `num_inference_steps` (optional): Number of inference steps (1-50)
+    - `guidance_scale` (optional): How closely to follow the prompt (1-20)
+
+- `falai_edit_image`: Edit images using FAL.ai's Qwen image editing model
+  - Parameters:
+    - `prompt` (required): Detailed prompt describing the desired edits
+    - `inputImagePath` (required): Path to input image to be edited
+    - `outputPath` (required): Path where the edited image should be saved
+    - `image_size` (optional): Image size preset
+    - `num_inference_steps` (optional): Number of inference steps (1-50)
+    - `guidance_scale` (optional): How closely to follow the prompt (1-20)
+
+#### Game Asset Generation
+- `generate_character_sheet`: Generate character sheets from text descriptions or reference images
+  - Parameters:
+    - `characterDescription` (required): Detailed description of the character
+    - `outputPath` (required): Path where the character sheet should be saved
+    - `referenceImagePaths` (optional): Array of reference image paths (character, outfit, etc.)
+    - `model` (optional): Model to use for generation ('openai', 'gemini', 'falai', default: gemini)
+    - `style` (optional): Art style for the character sheet (e.g., anime, realistic, cartoon)
+    - `includeExpressions` (optional): Include multiple facial expressions
+    - `includePoses` (optional): Include multiple poses/angles
+
+- `generate_character_variation`: Generate character variations by combining reference images
+  - Parameters:
+    - `prompt` (required): Description of the variation to create
+    - `outputPath` (required): Path where the variation should be saved
+    - `referenceImagePaths` (required): Array of reference image paths to combine
+    - `model` (optional): Model to use for generation ('openai', 'gemini', 'falai', default: gemini)
+
+- `generate_pixel_art_character`: Generate pixel art characters with specific dimensions for retro games
+  - Parameters:
+    - `characterDescription` (required): Description of the pixel art character
+    - `outputPath` (required): Path where the pixel art should be saved
+    - `pixelDimensions` (required): Target pixel dimensions ('8x8', '16x16', '32x32', '48x48', '64x64', '96x96')
+    - `spriteSheet` (optional): Generate sprite sheet with animations
+    - `model` (optional): Model to use (default: falai)
+    - `colors` (optional): Color palette size (4-256 colors)
+    - `transparentBackground` (optional): Generate pixel art with transparent background for game sprites
+    - `backgroundColor` (optional): Background color to make transparent ('white', 'black', 'auto', default: white)
+
+- `generate_texture`: Generate seamless textures for 3D environments and materials
+  - Parameters:
+    - `textureDescription` (required): Description of the texture (e.g., grass field, brick wall, wood planks, sprite object)
+    - `outputPath` (required): Path where the texture should be saved
+    - `textureSize` (optional): Texture resolution ('512x512', '1024x1024', '2048x2048', default: 1024x1024)
+    - `seamless` (optional): Generate seamless/tileable texture
+    - `model` (optional): Model to use (default: falai)
+    - `materialType` (optional): Type of texture map ('diffuse', 'normal', 'roughness', 'displacement')
+    - `transparentBackground` (optional): Generate texture with transparent background for sprites/decals
+    - `backgroundColor` (optional): Background color to make transparent ('white', 'black', 'auto', default: white)
+    - `transparencyTolerance` (optional): Color variation tolerance for transparency (0-255, default: 30)
+
+- `generate_object_sheet`: Generate multi-viewpoint reference sheets for 3D modeling
+  - Parameters:
+    - `objectDescription` (required): Description of the 3D object
+    - `outputBasePath` (required): Base path for output files (will append _front.png, _side.png, etc.)
+    - `viewpoints` (optional): Viewpoints to generate ('front', 'back', 'left', 'right', 'top', 'bottom', 'perspective')
+    - `model` (optional): Model to use (default: gemini)
+    - `style` (optional): Art style (e.g., technical drawing, concept art)
+
+#### 3D Model Generation
+- `image_to_3d`: Generate 3D models from images using advanced AI models with automatic reference image generation
+  - Parameters:
+    - `outputPath` (required): Path where the generated 3D model should be saved (.glb or .gltf)
+    - `prompt` (optional): Description of the 3D model to generate (used for automatic reference image generation)
+    - `inputImagePaths` (optional): Array of paths to input images or base64 URIs. If not provided, reference images will be generated automatically
+    - `model` (optional): 3D generation model ('hunyuan3d', 'trellis', 'hunyuan-world', default: hunyuan3d)
+    - `variant` (optional): Model variant ('single', 'multi', 'single-turbo', 'multi-turbo', default: auto-selected)
+    - `format` (optional): Output format ('glb', 'gltf', default: glb for web/game compatibility)
+    - `textured_mesh` (optional): Generate textured mesh (Hunyuan3D only, 3x cost, default: true)
+    - `autoGenerateReferences` (optional): Automatically generate reference images from prompt if no input images provided (default: true)
+    - `referenceModel` (optional): Model to use for automatic reference image generation ('openai', 'gemini', 'falai', default: gemini)
+    - `referenceViews` (optional): Views to generate for reference images (default: ["front", "back", "top"])
+    - `cleanupReferences` (optional): Clean up automatically generated reference images after 3D generation (default: true)
 
 ### Available Prompts
 
@@ -105,11 +181,10 @@ export ALLOWED_TOOLS="openai_generate_image,gemini_generate_image,generate_textu
 # - falai_edit_image
 # - generate_character_sheet
 # - generate_character_variation
-# - generate_pixel_art_character (now with transparent background support)
-# - generate_texture (now with transparent background support for sprites/decals)
+# - generate_pixel_art_character (with transparent background support)
+# - generate_texture (with transparent background support for sprites/decals)
 # - generate_object_sheet
-# - trellis_generate_3d_model
-# - hunyuan3d_generate_3d_model
+# - image_to_3d (unified 3D generation with automatic reference images)
 
 ## Transparent Background Generation
 
@@ -143,6 +218,22 @@ generate_pixel_art_character \
   --pixelDimensions "32x32" \
   --transparentBackground true \
   --colors 16
+
+# Generate 3D model with automatic reference images
+image_to_3d \
+  --prompt "fantasy sword with ornate handle" \
+  --outputPath "sword_model.glb" \
+  --model "hunyuan3d" \
+  --autoGenerateReferences true
+
+# Generate character sheet with multiple poses
+generate_character_sheet \
+  --characterDescription "female warrior with armor" \
+  --outputPath "warrior_sheet.png" \
+  --model "gemini" \
+  --style "realistic fantasy" \
+  --includeExpressions true \
+  --includePoses true
 ```
 ```
 
