@@ -2,6 +2,7 @@
 
 import { Server } from '@modelcontextprotocol/sdk/server/index.js';
 import { StdioServerTransport } from '@modelcontextprotocol/sdk/server/stdio.js';
+import path from 'path';
 import {
   CallToolRequestSchema,
   ListToolsRequestSchema,
@@ -22,6 +23,7 @@ import {
 } from './providers/imageProviders.js';
 import {
   generate3DModelSmart,
+  generate3DModelAsync,
   type Model3DGenerationOptionsExtended,
   Model3DModel,
   Model3DVariant,
@@ -437,6 +439,70 @@ const allTools = [
       required: ['outputPath'],
     },
   },
+  {
+    name: 'image_to_3d_async',
+    description: 'Generate 3D models asynchronously with status tracking. Returns a status file path immediately and processes in background to avoid timeouts. Use this for long-running 3D generation tasks.',
+    inputSchema: {
+      type: 'object',
+      properties: {
+        prompt: {
+          type: 'string',
+          description: 'Description of the 3D model to generate (used for automatic reference image generation)',
+        },
+        outputPath: {
+          type: 'string',
+          description: 'Path where the generated 3D model should be saved (.glb or .gltf)',
+        },
+        inputImagePaths: {
+          type: 'array',
+          items: { type: 'string' },
+          description: 'Array of paths to input images or base64 URIs (data:image/png;base64,...). If not provided, reference images will be generated automatically.',
+        },
+        model: {
+          type: 'string',
+          enum: Object.values(Model3DModel),
+          description: '3D generation model: hunyuan3d (best quality, supports textures), trellis (good for objects), hunyuan-world (for scenes/worlds). Default: hunyuan3d',
+        },
+        variant: {
+          type: 'string',
+          enum: Object.values(Model3DVariant),
+          description: 'Model variant: single (1 image), multi (multiple images), or turbo versions for faster generation. Default: auto-selected based on model and input count',
+        },
+        format: {
+          type: 'string',
+          enum: Object.values(Model3DFormat),
+          description: 'Output format (default: glb for web/game compatibility)',
+        },
+        textured_mesh: {
+          type: 'boolean',
+          description: 'Generate textured mesh (Hunyuan3D only, 3x cost). Default: true for better quality',
+        },
+        autoGenerateReferences: {
+          type: 'boolean',
+          description: 'Automatically generate reference images from prompt if no input images provided (default: true)',
+        },
+        referenceModel: {
+          type: 'string',
+          enum: ['openai', 'gemini', 'falai'],
+          description: 'Model to use for automatic reference image generation (default: gemini)',
+        },
+        referenceViews: {
+          type: 'array',
+          items: { type: 'string', enum: ['front', 'back', 'top', 'left', 'right'] },
+          description: 'Views to generate for reference images (default: ["front", "back", "top"])',
+        },
+        cleanupReferences: {
+          type: 'boolean',
+          description: 'Clean up automatically generated reference images after 3D generation (default: true)',
+        },
+        statusFile: {
+          type: 'string',
+          description: 'Path where the status JSON file will be created (default: auto-generated in output directory)',
+        },
+      },
+      required: ['outputPath'],
+    },
+  },
 ];
 
 const server = new Server(
@@ -600,6 +666,61 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
             {
               type: 'text',
               text: JSON.stringify(result),
+            },
+          ],
+        };
+      }
+
+      case 'image_to_3d_async': {
+        if (!args) {
+          throw new Error('Arguments are required for image_to_3d_async');
+        }
+        if (!args.outputPath) {
+          throw new Error('outputPath is required for image_to_3d_async');
+        }
+        
+        // Generate status file path
+        const statusFile = (args as any).statusFile || 
+          (args as any).outputPath.replace(/\.[^.]+$/, '_status.json');
+        
+        // Use hunyuan3d as default model for best quality
+        const selectedModel = (args as any).model || 'hunyuan3d';
+        
+        const result = await generate3DModelAsync(
+          {
+            prompt: (args as any).prompt || '',
+            outputPath: (args as any).outputPath,
+            model: selectedModel,
+            inputImagePaths: (args as any).inputImagePaths || [],
+            variant: (args as any).variant,
+            format: (args as any).format,
+            textured_mesh: (args as any).textured_mesh,
+            autoGenerateReferences: (args as any).autoGenerateReferences,
+            referenceModel: (args as any).referenceModel,
+            referenceViews: (args as any).referenceViews,
+            cleanupReferences: (args as any).cleanupReferences,
+          },
+          statusFile
+        );
+        
+        return {
+          content: [
+            {
+              type: 'text',
+              text: `3D model generation started in background. Status file: ${result.statusPath}
+
+You can monitor progress by reading the status file. The file will contain:
+- status: "pending" | "processing" | "completed" | "failed"
+- progress: 0-100
+- message: Current status description
+- result: Final generation result (when completed)
+- error: Error details (if failed)
+- logs: Detailed execution log
+
+Example usage:
+- Read the file periodically to check progress
+- When status is "completed", the result field contains the generation details
+- When status is "failed", the error field contains the error details`,
             },
           ],
         };

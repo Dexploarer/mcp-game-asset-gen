@@ -23,9 +23,76 @@ export {
   AVAILABLE_VARIANTS,
   DEFAULT_VARIANTS,
 };
+
+// Status file interface for background processing
+export interface Model3DGenerationStatus {
+  id: string;
+  status: 'pending' | 'processing' | 'completed' | 'failed';
+  progress: number; // 0-100
+  message: string;
+  startTime: string;
+  endTime?: string;
+  result?: Model3DGenerationResult;
+  error?: string;
+  logs: string[];
+}
+
+// Create and update status file
+export const updateStatusFile = (statusPath: string, status: Partial<Model3DGenerationStatus>) => {
+  try {
+    let currentStatus: Model3DGenerationStatus;
+    
+    if (existsSync(statusPath)) {
+      const data = readFileSync(statusPath, 'utf8');
+      currentStatus = JSON.parse(data);
+    } else {
+      currentStatus = {
+        id: path.basename(statusPath, '.json'),
+        status: 'pending',
+        progress: 0,
+        message: 'Initializing...',
+        startTime: new Date().toISOString(),
+        logs: []
+      };
+    }
+    
+    // Update with new status
+    Object.assign(currentStatus, status);
+    
+    writeFileSync(statusPath, JSON.stringify(currentStatus, null, 2));
+  } catch (error) {
+    console.warn(`Failed to update status file ${statusPath}:`, error);
+  }
+};
+
+// Add log entry to status file
+export const addLogToStatus = (statusPath: string, message: string) => {
+  try {
+    let currentStatus: Model3DGenerationStatus;
+    
+    if (existsSync(statusPath)) {
+      const data = readFileSync(statusPath, 'utf8');
+      currentStatus = JSON.parse(data);
+    } else {
+      currentStatus = {
+        id: path.basename(statusPath, '.json'),
+        status: 'processing',
+        progress: 0,
+        message: 'Starting...',
+        startTime: new Date().toISOString(),
+        logs: []
+      };
+    }
+    
+    currentStatus.logs.push(`[${new Date().toISOString()}] ${message}`);
+    writeFileSync(statusPath, JSON.stringify(currentStatus, null, 2));
+  } catch (error) {
+    console.warn(`Failed to add log to status file ${statusPath}:`, error);
+  }
+};
 import { generateImage } from './imageHelpers.js';
 import path from 'path';
-import { unlinkSync } from 'fs';
+import { unlinkSync, writeFileSync, readFileSync, existsSync } from 'fs';
 
 // Enhanced 3D generation options with automatic reference image support
 export interface Model3DGenerationOptionsExtended extends Model3DGenerationOptions {
@@ -328,6 +395,229 @@ export const generate3DModel = async (
       }
     }
   }
+};
+
+// Async 3D model generation with status file for long-running operations
+export const generate3DModelAsync = async (
+  options: Model3DGenerationOptionsExtended,
+  statusPath: string
+): Promise<{ statusPath: string }> => {
+  const {
+    prompt,
+    inputImagePaths = [],
+    outputPath,
+    model,
+    variant,
+    format = 'glb',
+    autoGenerateReferences = true,
+    referenceModel = 'gemini',
+    referenceViews = ['front', 'back', 'top'],
+    cleanupReferences = true,
+  } = options;
+  
+  // Initialize status file
+  updateStatusFile(statusPath, {
+    status: 'pending',
+    progress: 0,
+    message: 'Initializing 3D model generation...',
+  });
+  
+  // Start processing in background
+  (async () => {
+    let finalInputPaths = [...inputImagePaths];
+    let generatedReferences: string[] = [];
+    
+    try {
+      updateStatusFile(statusPath, {
+        status: 'processing',
+        progress: 5,
+        message: 'Validating options and preparing inputs...',
+      });
+      
+      addLogToStatus(statusPath, `Starting 3D generation with model: ${model}, variant: ${variant}`);
+      
+      // Validate options
+      validate3DModelOptions(options);
+      
+      updateStatusFile(statusPath, {
+        progress: 10,
+        message: 'Checking input images...',
+      });
+      
+      // If no input images provided, generate reference images automatically
+      if (finalInputPaths.length === 0 && prompt && autoGenerateReferences) {
+        addLogToStatus(statusPath, 'No input images provided, generating reference images automatically...');
+        
+        updateStatusFile(statusPath, {
+          progress: 20,
+          message: 'Generating reference images...',
+        });
+        
+        const outputBasePath = outputPath.replace(/\.[^.]+$/, '');
+        generatedReferences = await generateReferenceImages(
+          prompt,
+          outputBasePath,
+          (variant && variant.includes('multi')) ? referenceViews : ['front'],
+          referenceModel
+        );
+        
+        finalInputPaths = generatedReferences;
+        addLogToStatus(statusPath, `Generated ${generatedReferences.length} reference images`);
+      }
+      
+      updateStatusFile(statusPath, {
+        progress: 30,
+        message: 'Preparing 3D generation request...',
+      });
+      
+      // Determine the actual variant to use based on input count
+      const actualVariant = variant || selectModelVariant(model, finalInputPaths.length);
+      
+      addLogToStatus(statusPath, `Using variant: ${actualVariant} with ${finalInputPaths.length} input images`);
+      
+      // Call the appropriate 3D generation function
+      let result: Model3DGenerationResult;
+      
+      updateStatusFile(statusPath, {
+        progress: 40,
+        message: `Calling ${model} ${actualVariant} API...`,
+      });
+      
+      switch (model) {
+        case 'trellis':
+          if (actualVariant === 'single') {
+            result = await trellisGenerate3DSingle({
+              prompt,
+              imagePath: finalInputPaths[0],
+              outputPath,
+              format,
+            });
+          } else {
+            result = await trellisGenerate3DMulti({
+              prompt,
+              imagePaths: finalInputPaths,
+              outputPath,
+              format,
+            });
+          }
+          break;
+          
+        case 'hunyuan3d':
+          updateStatusFile(statusPath, {
+            progress: 50,
+            message: 'Processing with Hunyuan3D...',
+          });
+          
+          switch (actualVariant) {
+            case 'single':
+              result = await hunyuan3DGenerateSingle({
+                prompt,
+                imagePath: finalInputPaths[0],
+                outputPath,
+                format,
+              });
+              break;
+            case 'multi':
+              result = await hunyuan3DGenerateMulti({
+                prompt,
+                imagePaths: finalInputPaths,
+                outputPath,
+                format,
+              });
+              break;
+            case 'single-turbo':
+              result = await hunyuan3DGenerateSingleTurbo({
+                prompt,
+                imagePath: finalInputPaths[0],
+                outputPath,
+                format,
+              });
+              break;
+            case 'multi-turbo':
+              result = await hunyuan3DGenerateMultiTurbo({
+                prompt,
+                imagePaths: finalInputPaths,
+                outputPath,
+                format,
+              });
+              break;
+            default:
+              throw new Error(`Unsupported Hunyuan3D variant: ${actualVariant}`);
+          }
+          break;
+          
+        case 'hunyuan-world':
+          updateStatusFile(statusPath, {
+            progress: 50,
+            message: 'Processing with Hunyuan World...',
+          });
+          
+          // Hunyuan World only supports single image input
+          result = await hunyuanWorldGenerate3D({
+            prompt,
+            imagePath: finalInputPaths[0],
+            outputPath,
+            format,
+          });
+          break;
+          
+        default:
+          throw new Error(`Unsupported 3D model: ${model}`);
+      }
+      
+      updateStatusFile(statusPath, {
+        progress: 90,
+        message: 'Finalizing result...',
+      });
+      
+      // Add metadata about automatic reference generation
+      if (generatedReferences.length > 0) {
+        result.auto_generated_references = generatedReferences;
+        result.reference_model_used = referenceModel;
+        result.reference_views_generated = referenceViews;
+      }
+      
+      updateStatusFile(statusPath, {
+        status: 'completed',
+        progress: 100,
+        message: '3D model generation completed successfully!',
+        endTime: new Date().toISOString(),
+        result,
+      });
+      
+      addLogToStatus(statusPath, '3D model generation completed successfully');
+      
+    } catch (error) {
+      const errorMessage = error instanceof Error ? error.message : String(error);
+      
+      updateStatusFile(statusPath, {
+        status: 'failed',
+        progress: 0,
+        message: `Generation failed: ${errorMessage}`,
+        endTime: new Date().toISOString(),
+        error: errorMessage,
+      });
+      
+      addLogToStatus(statusPath, `ERROR: ${errorMessage}`);
+      
+    } finally {
+      // Clean up generated reference images if requested
+      if (cleanupReferences && generatedReferences.length > 0) {
+        addLogToStatus(statusPath, 'Cleaning up reference images...');
+        for (const refPath of generatedReferences) {
+          try {
+            unlinkSync(refPath);
+            addLogToStatus(statusPath, `Cleaned up: ${refPath}`);
+          } catch (cleanupError) {
+            addLogToStatus(statusPath, `Failed to cleanup ${refPath}: ${cleanupError}`);
+          }
+        }
+      }
+    }
+  })();
+  
+  // Immediately return the status file path
+  return { statusPath };
 };
 
 // Validation function for 3D model generation options
