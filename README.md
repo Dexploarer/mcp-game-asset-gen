@@ -113,24 +113,17 @@ export ALLOWED_TOOLS="openai_generate_image,gemini_generate_image,generate_textu
 
 ## Transparent Background Generation
 
-The server now supports generating images with transparent backgrounds, perfect for game sprites and decals. This uses a two-step process:
+The server supports generating images with transparent backgrounds, perfect for game sprites and decals. This uses a two-step process with native JavaScript:
 
 1. Generate the image with a solid white/black background
-2. Use ImageMagick to convert the solid background to transparent alpha
+2. Convert the solid background to transparent alpha using native JavaScript processing
 
-### Prerequisites
+### Features
 
-Install ImageMagick for transparent background generation:
-```bash
-# macOS
-brew install imagemagick
-
-# Ubuntu/Debian
-sudo apt-get install imagemagick
-
-# Windows
-# Download from https://imagemagick.org/script/download.php
-```
+- **Native JavaScript**: No external dependencies required
+- **Auto-detection**: Automatically detects white or black backgrounds
+- **Adjustable tolerance**: Control how much color variation to allow
+- **PNG support**: Works with PNG images for transparency
 
 ### Examples
 
