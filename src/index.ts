@@ -32,13 +32,13 @@ const allowedToolsEnv = process.env.ALLOWED_TOOLS;
 const allTools = [
   {
     name: 'openai_generate_image',
-    description: "Generate images using OpenAI's image generation API. For transparency conversion, generate with solid white background (or black for dark objects/snowy scenes) to enable transparent background processing.",
+    description: "Generate images using OpenAI's image generation API. For transparency conversion, generate with solid white background (or black for dark objects/snowy scenes). The transparency converter uses color tolerance, so backgrounds close to pure white/black (within tolerance range) will be made transparent.",
     inputSchema: {
       type: 'object',
       properties: {
         prompt: {
           type: 'string',
-          description: 'Detailed description of the image to generate. Include "plain white background" or "plain black background" for transparency conversion support.',
+          description: 'Detailed description of the image to generate. Include "plain white background" or "plain black background" for transparency conversion support. Near-white backgrounds (like #efefef to #ffffff) work with default tolerance.',
         },
         outputPath: {
           type: 'string',
@@ -75,13 +75,13 @@ const allTools = [
   },
   {
     name: 'gemini_generate_image',
-    description: "Generate images using Google's Gemini 2.5 Flash native image generation, supports multiple input images for variations. For transparency conversion, generate with solid white background (or black for dark objects/snowy scenes) to enable transparent background processing.",
+    description: "Generate images using Google's Gemini 2.5 Flash native image generation, supports multiple input images for variations. For transparency conversion, generate with solid white background (or black for dark objects/snowy scenes). The transparency converter uses color tolerance, so backgrounds close to pure white/black will be made transparent.",
     inputSchema: {
       type: 'object',
       properties: {
         prompt: {
           type: 'string',
-          description: 'Description of the image to generate. Include "plain white background" or "plain black background" for transparency conversion support.',
+          description: 'Description of the image to generate. Include "plain white background" or "plain black background" for transparency conversion support. Near-white backgrounds work with default tolerance.',
         },
         outputPath: {
           type: 'string',
@@ -102,13 +102,13 @@ const allTools = [
   },
   {
     name: 'falai_generate_image',
-    description: 'Generate high-quality images using FAL.ai\'s Qwen image generation model. For transparency conversion, generate with solid white background (or black for dark objects/snowy scenes) to enable transparent background processing.',
+    description: 'Generate high-quality images using FAL.ai\'s Qwen image generation model. For transparency conversion, generate with solid white background (or black for dark objects/snowy scenes). The transparency converter uses color tolerance, so backgrounds close to pure white/black will be made transparent.',
     inputSchema: {
       type: 'object',
       properties: {
         prompt: {
           type: 'string',
-          description: 'Detailed prompt for image generation. Include "plain white background" or "plain black background" for transparency conversion support.',
+          description: 'Detailed prompt for image generation. Include "plain white background" or "plain black background" for transparency conversion support. Near-white backgrounds work with default tolerance.',
         },
         outputPath: {
           type: 'string',
@@ -244,13 +244,13 @@ const allTools = [
   },
   {
     name: 'generate_pixel_art_character',
-    description: 'Generate pixel art characters with specific dimensions for retro games, with optional transparent backgrounds. For transparency conversion, characters are generated with solid backgrounds (white by default, black for dark characters) to enable transparent background processing.',
+    description: 'Generate pixel art characters with specific dimensions for retro games, with optional transparent backgrounds. For transparency conversion, characters are generated with solid backgrounds (white by default, black for dark characters). The transparency converter uses color tolerance, so backgrounds close to pure white/black will be made transparent.',
     inputSchema: {
       type: 'object',
       properties: {
         characterDescription: {
           type: 'string',
-          description: 'Description of the pixel art character. For transparent backgrounds, specify if black background is preferred for dark characters.',
+          description: 'Description of the pixel art character. For transparent backgrounds, specify if black background is preferred for dark characters. Near-white backgrounds work with default tolerance.',
         },
         outputPath: {
           type: 'string',
@@ -291,13 +291,13 @@ const allTools = [
   },
   {
     name: 'generate_texture',
-    description: 'Generate seamless textures for 3D environments and materials with optional transparent backgrounds for sprites/decals. For transparent backgrounds, textures are generated with solid backgrounds (white by default, black for dark objects) to enable transparency conversion.',
+    description: 'Generate seamless textures for 3D environments and materials with optional transparent backgrounds for sprites/decals. For transparent backgrounds, textures are generated with solid backgrounds (white by default, black for dark objects). The transparency converter uses color tolerance, so backgrounds close to pure white/black will be made transparent.',
     inputSchema: {
       type: 'object',
       properties: {
         textureDescription: {
           type: 'string',
-          description: 'Description of the texture (e.g., grass field, brick wall, wood planks, sprite object). For transparent backgrounds, specify if black background is preferred for dark objects.',
+          description: 'Description of the texture (e.g., grass field, brick wall, wood planks, sprite object). For transparent backgrounds, specify if black background is preferred for dark objects. Near-white backgrounds work with default tolerance.',
         },
         outputPath: {
           type: 'string',
@@ -335,7 +335,7 @@ const allTools = [
           type: 'number',
           minimum: 0,
           maximum: 255,
-          description: 'Color variation tolerance for transparency (0-255, default: 30)',
+          description: 'Color variation tolerance for transparency (0-255, default: 30). Higher values make more color variations transparent. For example, tolerance 30 makes colors from #e1e1e1 to #ffffff transparent when targeting white.',
         },
       },
       required: ['textureDescription', 'outputPath'],
