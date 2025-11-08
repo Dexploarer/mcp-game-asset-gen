@@ -374,8 +374,8 @@ const allTools = [
     },
   },
   {
-    name: 'trellis_generate_3d_model',
-    description: 'Generate 3D models using FAL.ai Trellis model with automatic reference image generation',
+    name: 'image_to_3d',
+    description: 'Generate 3D models from images using advanced AI models (Trellis, Hunyuan3D 2.0, Hunyuan World) with automatic reference image generation and intelligent model selection',
     inputSchema: {
       type: 'object',
       properties: {
@@ -392,66 +392,24 @@ const allTools = [
           items: { type: 'string' },
           description: 'Array of paths to input images or base64 URIs (data:image/png;base64,...). If not provided, reference images will be generated automatically.',
         },
-        variant: {
+        model: {
           type: 'string',
-          enum: ['single', 'multi'],
-          description: 'Model variant: single (1 image) or multi (multiple images). Default: multi for better quality',
-        },
-        format: {
-          type: 'string',
-          enum: ['glb', 'gltf'],
-          description: 'Output format (default: glb for web/game compatibility)',
-        },
-        autoGenerateReferences: {
-          type: 'boolean',
-          description: 'Automatically generate reference images from prompt if no input images provided (default: true)',
-        },
-        referenceModel: {
-          type: 'string',
-          enum: ['openai', 'gemini', 'falai'],
-          description: 'Model to use for automatic reference image generation (default: gemini)',
-        },
-        referenceViews: {
-          type: 'array',
-          items: { type: 'string', enum: ['front', 'back', 'top', 'left', 'right'] },
-          description: 'Views to generate for reference images (default: ["front", "back", "top"])',
-        },
-        cleanupReferences: {
-          type: 'boolean',
-          description: 'Clean up automatically generated reference images after 3D generation (default: true)',
-        },
-      },
-      required: ['outputPath'],
-    },
-  },
-  {
-    name: 'hunyuan3d_generate_3d_model',
-    description: 'Generate 3D models using FAL.ai Hunyuan3D 2.0 model with automatic reference image generation and turbo options',
-    inputSchema: {
-      type: 'object',
-      properties: {
-        prompt: {
-          type: 'string',
-          description: 'Description of the 3D model to generate (used for automatic reference image generation)',
-        },
-        outputPath: {
-          type: 'string',
-          description: 'Path where the generated 3D model should be saved (.glb or .gltf)',
-        },
-        inputImagePaths: {
-          type: 'array',
-          items: { type: 'string' },
-          description: 'Array of paths to input images or base64 URIs (data:image/png;base64,...). If not provided, reference images will be generated automatically.',
+          enum: ['hunyuan3d', 'trellis', 'hunyuan-world'],
+          description: '3D generation model: hunyuan3d (best quality, supports textures), trellis (good for objects), hunyuan-world (for scenes/worlds). Default: hunyuan3d',
         },
         variant: {
           type: 'string',
           enum: ['single', 'multi', 'single-turbo', 'multi-turbo'],
-          description: 'Model variant: single (1 image), multi (multiple images), or turbo versions for faster generation. Default: multi for better quality',
+          description: 'Model variant: single (1 image), multi (multiple images), or turbo versions for faster generation. Default: auto-selected based on model and input count',
         },
         format: {
           type: 'string',
           enum: ['glb', 'gltf'],
           description: 'Output format (default: glb for web/game compatibility)',
+        },
+        textured_mesh: {
+          type: 'boolean',
+          description: 'Generate textured mesh (Hunyuan3D only, 3x cost). Default: true for better quality',
         },
         autoGenerateReferences: {
           type: 'boolean',
@@ -616,40 +574,21 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
         };
       }
 
-      case 'trellis_generate_3d_model': {
+      case 'image_to_3d': {
         if (!args) {
-          throw new Error('Arguments are required for trellis_generate_3d_model');
+          throw new Error('Arguments are required for image_to_3d');
         }
         if (!args.outputPath) {
-          throw new Error('outputPath is required for trellis_generate_3d_model');
+          throw new Error('outputPath is required for image_to_3d');
         }
+        
+        // Use hunyuan3d as default model for best quality
+        const selectedModel = (args as any).model || 'hunyuan3d';
+        
         const result = await generate3DModelSmart(
           (args as any).prompt || '',
           (args as any).outputPath,
-          'trellis',
-          args as any
-        );
-        return {
-          content: [
-            {
-              type: 'text',
-              text: JSON.stringify(result),
-            },
-          ],
-        };
-      }
-
-      case 'hunyuan3d_generate_3d_model': {
-        if (!args) {
-          throw new Error('Arguments are required for hunyuan3d_generate_3d_model');
-        }
-        if (!args.outputPath) {
-          throw new Error('outputPath is required for hunyuan3d_generate_3d_model');
-        }
-        const result = await generate3DModelSmart(
-          (args as any).prompt || '',
-          (args as any).outputPath,
-          'hunyuan3d',
+          selectedModel,
           args as any
         );
         return {

@@ -1,4 +1,4 @@
-import { writeFileSync, mkdirSync } from 'fs';
+import { writeFileSync, mkdirSync, statSync } from 'fs';
 import { execFile } from 'child_process';
 import { promisify } from 'util';
 import path from 'path';
@@ -16,7 +16,7 @@ export interface Model3DGenerationOptions {
   prompt?: string;
   inputImagePaths?: string[];
   outputPath: string;
-  model: 'trellis' | 'hunyuan3d';
+  model: 'trellis' | 'hunyuan3d' | 'hunyuan-world';
   variant?: 'single' | 'multi' | 'single-turbo' | 'multi-turbo';
   format?: 'glb' | 'gltf';
   quality?: 'standard' | 'high';
@@ -91,7 +91,7 @@ export const getModel3DInfo = async (modelPath: string): Promise<{
   format: string;
 }> => {
   try {
-    const stats = require('fs').statSync(modelPath);
+    const stats = statSync(modelPath);
     const fileSize = stats.size;
     const ext = path.extname(modelPath).toLowerCase();
     
@@ -489,6 +489,74 @@ export const hunyuan3DGenerateMultiTurbo = async (args: {
     savedPaths: savedPaths,
     prompt_used: args.prompt,
     input_images: args.imagePaths,
+    generation_time: response.timings?.inference,
+    model_info: modelInfo,
+    parameters: body
+  };
+};
+
+// Hunyuan World Model (for world/scene generation)
+export const hunyuanWorldGenerate3D = async (args: {
+  prompt?: string;
+  imagePath: string;
+  outputPath: string;
+  format?: 'glb' | 'gltf';
+  camera_distance?: number;
+  fov?: number;
+  num_inference_steps?: number;
+  guidance_scale?: number;
+  seed?: number;
+}): Promise<Model3DGenerationResult> => {
+  const apiKey = getFalAIKey();
+  
+  // Convert image to base64 URI if it's a file path
+  let imageUri = args.imagePath;
+  if (!args.imagePath.startsWith('data:')) {
+    imageUri = `data:image/png;base64,${encodeImageToBase64(args.imagePath)}`;
+  }
+  
+  const body = {
+    image_url: imageUri,
+    camera_distance: args.camera_distance || 2.5,
+    fov: args.fov || 40,
+    num_inference_steps: args.num_inference_steps || 50,
+    guidance_scale: args.guidance_scale || 7.5,
+    seed: args.seed,
+  };
+  
+  const headers = {
+    'Authorization': `Key ${apiKey}`,
+    'Content-Type': 'application/json'
+  };
+  
+  const endpoint = 'https://fal.run/fal-ai/hunyuan_world/image-to-world';
+  
+  const response = await makeHTTPRequest(endpoint, 'POST', headers, body);
+  
+  if (response.error || response.detail) {
+    throw new Error(`Hunyuan World API error: ${response.error?.message || JSON.stringify(response.detail || response.error)}`);
+  }
+  
+  // Download and save the 3D model
+  const savedPaths: string[] = [];
+  
+  if (response.model_url) {
+    const modelPath = await downloadAndSave3DModel(response.model_url, args.outputPath);
+    savedPaths.push(modelPath);
+  } else {
+    throw new Error('No model URL in Hunyuan World response');
+  }
+  
+  // Get model information
+  const modelInfo = await getModel3DInfo(args.outputPath);
+  
+  return {
+    provider: 'FAL.ai',
+    model: 'hunyuan-world',
+    variant: 'single',
+    savedPaths: savedPaths,
+    prompt_used: args.prompt,
+    input_images: [args.imagePath],
     generation_time: response.timings?.inference,
     model_info: modelInfo,
     parameters: body

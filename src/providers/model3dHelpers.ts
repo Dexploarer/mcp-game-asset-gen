@@ -5,6 +5,7 @@ import {
   hunyuan3DGenerateMulti,
   hunyuan3DGenerateSingleTurbo,
   hunyuan3DGenerateMultiTurbo,
+  hunyuanWorldGenerate3D,
   type Model3DGenerationOptions,
   type Model3DGenerationResult,
 } from '../utils/model3dUtils.js';
@@ -79,12 +80,15 @@ export const generateReferenceImages = async (
 
 // Helper function to determine which model variant to use
 export const selectModelVariant = (
-  model: 'trellis' | 'hunyuan3d',
+  model: 'trellis' | 'hunyuan3d' | 'hunyuan-world',
   inputImageCount: number,
   preferTurbo: boolean = false
 ): 'single' | 'multi' | 'single-turbo' | 'multi-turbo' => {
   if (model === 'trellis') {
     return inputImageCount <= 1 ? 'single' : 'multi';
+  } else if (model === 'hunyuan-world') {
+    // Hunyuan World only supports single image
+    return 'single';
   } else {
     // Hunyuan3D variants
     if (preferTurbo) {
@@ -204,6 +208,16 @@ export const generate3DModel = async (
         }
         break;
         
+      case 'hunyuan-world':
+        // Hunyuan World only supports single image input
+        result = await hunyuanWorldGenerate3D({
+          prompt,
+          imagePath: finalInputPaths[0],
+          outputPath,
+          format,
+        });
+        break;
+        
       default:
         throw new Error(`Unsupported 3D model: ${model}`);
     }
@@ -238,8 +252,8 @@ export const validate3DModelOptions = (options: Model3DGenerationOptionsExtended
     throw new Error('Output path is required and cannot be empty');
   }
   
-  if (!['trellis', 'hunyuan3d'].includes(options.model)) {
-    throw new Error('Model must be one of: trellis, hunyuan3d');
+  if (!['trellis', 'hunyuan3d', 'hunyuan-world'].includes(options.model)) {
+    throw new Error('Model must be one of: trellis, hunyuan3d, hunyuan-world');
   }
   
   if (options.variant && !['single', 'multi', 'single-turbo', 'multi-turbo'].includes(options.variant)) {
@@ -255,6 +269,10 @@ export const validate3DModelOptions = (options: Model3DGenerationOptionsExtended
     throw new Error('Trellis model does not support turbo variants');
   }
   
+  if (options.model === 'hunyuan-world' && options.variant !== 'single') {
+    throw new Error('Hunyuan World model only supports single variant');
+  }
+  
   // If no input images and no prompt, validation fails
   if ((!options.inputImagePaths || options.inputImagePaths.length === 0) && !options.prompt) {
     throw new Error('Either input images or a prompt is required for 3D model generation');
@@ -262,7 +280,7 @@ export const validate3DModelOptions = (options: Model3DGenerationOptionsExtended
 };
 
 // Get default options for 3D model generation
-export const getDefault3DOptions = (model: 'trellis' | 'hunyuan3d'): Partial<Model3DGenerationOptionsExtended> => {
+export const getDefault3DOptions = (model: 'trellis' | 'hunyuan3d' | 'hunyuan-world'): Partial<Model3DGenerationOptionsExtended> => {
   const baseDefaults = {
     format: 'glb' as const,
     autoGenerateReferences: true,
@@ -286,6 +304,13 @@ export const getDefault3DOptions = (model: 'trellis' | 'hunyuan3d'): Partial<Mod
         variant: 'multi', // Prefer multi for better quality
       };
       
+    case 'hunyuan-world':
+      return {
+        ...baseDefaults,
+        model: 'hunyuan-world',
+        variant: 'single', // Only supports single
+      };
+      
     default:
       throw new Error(`No default options available for model: ${model}`);
   }
@@ -301,7 +326,7 @@ export const merge3DWithDefaults = (options: Model3DGenerationOptionsExtended): 
 export const generate3DModelSmart = async (
   prompt: string,
   outputPath: string,
-  model: 'trellis' | 'hunyuan3d' = 'hunyuan3d',
+  model: 'trellis' | 'hunyuan3d' | 'hunyuan-world' = 'hunyuan3d',
   options: Partial<Model3DGenerationOptionsExtended> = {}
 ): Promise<Model3DGenerationResult> => {
   const fullOptions: Model3DGenerationOptionsExtended = merge3DWithDefaults({
