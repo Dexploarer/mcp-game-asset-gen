@@ -6,6 +6,9 @@ import {
   selectModelVariant,
   generateReferenceImages,
   type Model3DGenerationOptionsExtended,
+  Model3DModel,
+  Model3DVariant,
+  Model3DFormat,
 } from './providers/model3dHelpers.js';
 
 // Mock the imageHelpers module
@@ -23,6 +26,28 @@ vi.mock('./utils/model3dUtils.js', () => ({
   hunyuan3DGenerateMultiTurbo: vi.fn(),
   validateBase64ImageURI: vi.fn(),
   convertPathsToBase64URIs: vi.fn(),
+  Model3DModel: {
+    TRELLIS: 'trellis',
+    HUNYUAN3D: 'hunyuan3d',
+  },
+  Model3DVariant: {
+    SINGLE: 'single',
+    MULTI: 'multi',
+    SINGLE_TURBO: 'single-turbo',
+    MULTI_TURBO: 'multi-turbo',
+  },
+  Model3DFormat: {
+    GLB: 'glb',
+    GLTF: 'gltf',
+  },
+  AVAILABLE_VARIANTS: {
+    trellis: ['single', 'multi'],
+    hunyuan3d: ['single', 'multi', 'single-turbo', 'multi-turbo'],
+  },
+  DEFAULT_VARIANTS: {
+    trellis: 'multi',
+    hunyuan3d: 'multi',
+  },
 }));
 
 import { generateImage } from './providers/imageHelpers.js';
@@ -37,8 +62,8 @@ describe('3D Model Helpers', () => {
     it('should pass validation for valid options', () => {
       const options: Model3DGenerationOptionsExtended = {
         outputPath: 'model.glb',
-        model: 'trellis',
-        variant: 'single',
+        model: Model3DModel.TRELLIS,
+        variant: Model3DVariant.SINGLE,
         prompt: 'test model',
       };
 
@@ -48,7 +73,7 @@ describe('3D Model Helpers', () => {
     it('should throw error for missing output path', () => {
       const options: Model3DGenerationOptionsExtended = {
         outputPath: '',
-        model: 'trellis',
+        model: Model3DModel.TRELLIS,
       };
 
       expect(() => validate3DModelOptions(options)).toThrow('Output path is required and cannot be empty');
@@ -66,7 +91,7 @@ describe('3D Model Helpers', () => {
     it('should throw error for invalid variant', () => {
       const options: Model3DGenerationOptionsExtended = {
         outputPath: 'model.glb',
-        model: 'trellis',
+        model: Model3DModel.TRELLIS,
         variant: 'invalid' as any,
       };
 
@@ -76,8 +101,8 @@ describe('3D Model Helpers', () => {
     it('should throw error for turbo variant with trellis', () => {
       const options: Model3DGenerationOptionsExtended = {
         outputPath: 'model.glb',
-        model: 'trellis',
-        variant: 'single-turbo',
+        model: Model3DModel.TRELLIS,
+        variant: Model3DVariant.SINGLE_TURBO,
       };
 
       expect(() => validate3DModelOptions(options)).toThrow('Trellis model does not support turbo variants');
@@ -86,7 +111,7 @@ describe('3D Model Helpers', () => {
     it('should throw error when no images or prompt provided', () => {
       const options: Model3DGenerationOptionsExtended = {
         outputPath: 'model.glb',
-        model: 'trellis',
+        model: Model3DModel.TRELLIS,
         inputImagePaths: [],
       };
 
@@ -96,30 +121,30 @@ describe('3D Model Helpers', () => {
 
   describe('getDefault3DOptions', () => {
     it('should return default options for Trellis', () => {
-      const defaults = getDefault3DOptions('trellis');
+      const defaults = getDefault3DOptions(Model3DModel.TRELLIS);
 
       expect(defaults).toEqual({
-        format: 'glb',
+        format: Model3DFormat.GLB,
         autoGenerateReferences: true,
         referenceModel: 'gemini',
         referenceViews: ['front', 'back', 'top'],
         cleanupReferences: true,
-        model: 'trellis',
-        variant: 'multi',
+        model: Model3DModel.TRELLIS,
+        variant: Model3DVariant.MULTI,
       });
     });
 
     it('should return default options for Hunyuan3D', () => {
-      const defaults = getDefault3DOptions('hunyuan3d');
+      const defaults = getDefault3DOptions(Model3DModel.HUNYUAN3D);
 
       expect(defaults).toEqual({
-        format: 'glb',
+        format: Model3DFormat.GLB,
         autoGenerateReferences: true,
         referenceModel: 'gemini',
         referenceViews: ['front', 'back', 'top'],
         cleanupReferences: true,
-        model: 'hunyuan3d',
-        variant: 'multi',
+        model: Model3DModel.HUNYUAN3D,
+        variant: Model3DVariant.MULTI,
       });
     });
 
@@ -132,21 +157,21 @@ describe('3D Model Helpers', () => {
     it('should merge user options with defaults', () => {
       const userOptions: Model3DGenerationOptionsExtended = {
         outputPath: 'model.glb',
-        model: 'trellis',
-        variant: 'single', // Override default
+        model: Model3DModel.TRELLIS,
+        variant: Model3DVariant.SINGLE, // Override default
         prompt: 'test model',
       };
 
       const merged = merge3DWithDefaults(userOptions);
 
       expect(merged).toEqual({
-        format: 'glb', // Default
+        format: Model3DFormat.GLB, // Default
         autoGenerateReferences: true, // Default
         referenceModel: 'gemini', // Default
         referenceViews: ['front', 'back', 'top'], // Default
         cleanupReferences: true, // Default
-        model: 'trellis',
-        variant: 'single', // User option
+        model: Model3DModel.TRELLIS,
+        variant: Model3DVariant.SINGLE, // User option
         outputPath: 'model.glb',
         prompt: 'test model',
       });
@@ -155,7 +180,7 @@ describe('3D Model Helpers', () => {
     it('should preserve user options when not conflicting with defaults', () => {
       const userOptions: Model3DGenerationOptionsExtended = {
         outputPath: 'model.glb',
-        model: 'hunyuan3d',
+        model: Model3DModel.HUNYUAN3D,
         referenceViews: ['front', 'left'], // User-specific option
         prompt: 'test model',
       };
@@ -163,39 +188,39 @@ describe('3D Model Helpers', () => {
       const merged = merge3DWithDefaults(userOptions);
 
       expect(merged.referenceViews).toEqual(['front', 'left']); // User option preserved
-      expect(merged.variant).toBe('multi'); // Default applied
+      expect(merged.variant).toBe(Model3DVariant.MULTI); // Default applied
     });
   });
 
   describe('selectModelVariant', () => {
     it('should select single variant for Trellis with one image', () => {
-      const variant = selectModelVariant('trellis', 1);
-      expect(variant).toBe('single');
+      const variant = selectModelVariant(Model3DModel.TRELLIS, 1);
+      expect(variant).toBe(Model3DVariant.SINGLE);
     });
 
     it('should select multi variant for Trellis with multiple images', () => {
-      const variant = selectModelVariant('trellis', 3);
-      expect(variant).toBe('multi');
+      const variant = selectModelVariant(Model3DModel.TRELLIS, 3);
+      expect(variant).toBe(Model3DVariant.MULTI);
     });
 
     it('should select single variant for Hunyuan3D with one image', () => {
-      const variant = selectModelVariant('hunyuan3d', 1);
-      expect(variant).toBe('single');
+      const variant = selectModelVariant(Model3DModel.HUNYUAN3D, 1);
+      expect(variant).toBe(Model3DVariant.SINGLE);
     });
 
     it('should select multi variant for Hunyuan3D with multiple images', () => {
-      const variant = selectModelVariant('hunyuan3d', 3);
-      expect(variant).toBe('multi');
+      const variant = selectModelVariant(Model3DModel.HUNYUAN3D, 3);
+      expect(variant).toBe(Model3DVariant.MULTI);
     });
 
     it('should select single-turbo for Hunyuan3D with turbo preference', () => {
-      const variant = selectModelVariant('hunyuan3d', 1, true);
-      expect(variant).toBe('single-turbo');
+      const variant = selectModelVariant(Model3DModel.HUNYUAN3D, 1, true);
+      expect(variant).toBe(Model3DVariant.SINGLE_TURBO);
     });
 
     it('should select multi-turbo for Hunyuan3D with multiple images and turbo preference', () => {
-      const variant = selectModelVariant('hunyuan3d', 3, true);
-      expect(variant).toBe('multi-turbo');
+      const variant = selectModelVariant(Model3DModel.HUNYUAN3D, 3, true);
+      expect(variant).toBe(Model3DVariant.MULTI_TURBO);
     });
   });
 

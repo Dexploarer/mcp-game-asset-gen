@@ -23,6 +23,10 @@ import {
 import {
   generate3DModelSmart,
   type Model3DGenerationOptionsExtended,
+  Model3DModel,
+  Model3DVariant,
+  Model3DFormat,
+  AVAILABLE_VARIANTS,
 } from './providers/model3dHelpers.js';
 
 // Check environment variables for tool filtering
@@ -394,17 +398,17 @@ const allTools = [
         },
         model: {
           type: 'string',
-          enum: ['hunyuan3d', 'trellis', 'hunyuan-world'],
+          enum: Object.values(Model3DModel),
           description: '3D generation model: hunyuan3d (best quality, supports textures), trellis (good for objects), hunyuan-world (for scenes/worlds). Default: hunyuan3d',
         },
         variant: {
           type: 'string',
-          enum: ['single', 'multi', 'single-turbo', 'multi-turbo'],
+          enum: Object.values(Model3DVariant),
           description: 'Model variant: single (1 image), multi (multiple images), or turbo versions for faster generation. Default: auto-selected based on model and input count',
         },
         format: {
           type: 'string',
-          enum: ['glb', 'gltf'],
+          enum: Object.values(Model3DFormat),
           description: 'Output format (default: glb for web/game compatibility)',
         },
         textured_mesh: {

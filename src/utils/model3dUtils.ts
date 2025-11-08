@@ -11,14 +11,47 @@ import {
 
 const execFileAsync = promisify(execFile);
 
+// Available 3D generation models and variants (prevents invalid configurations)
+export enum Model3DModel {
+  TRELLIS = 'trellis',
+  HUNYUAN3D = 'hunyuan3d',
+  HUNYUAN_WORLD = 'hunyuan-world'
+}
+
+export enum Model3DVariant {
+  SINGLE = 'single',
+  MULTI = 'multi',
+  SINGLE_TURBO = 'single-turbo',
+  MULTI_TURBO = 'multi-turbo'
+}
+
+export enum Model3DFormat {
+  GLB = 'glb',
+  GLTF = 'gltf'
+}
+
+// Available variant combinations for each model (prevents API errors)
+export const AVAILABLE_VARIANTS = {
+  [Model3DModel.TRELLIS]: [Model3DVariant.SINGLE, Model3DVariant.MULTI],
+  [Model3DModel.HUNYUAN3D]: [Model3DVariant.SINGLE, Model3DVariant.MULTI, Model3DVariant.SINGLE_TURBO, Model3DVariant.MULTI_TURBO],
+  [Model3DModel.HUNYUAN_WORLD]: [Model3DVariant.SINGLE] // Only single variant for world model
+} as const;
+
+// Default variants for each model (ensures good user experience)
+export const DEFAULT_VARIANTS = {
+  [Model3DModel.TRELLIS]: Model3DVariant.SINGLE,
+  [Model3DModel.HUNYUAN3D]: Model3DVariant.SINGLE,
+  [Model3DModel.HUNYUAN_WORLD]: Model3DVariant.SINGLE
+} as const;
+
 // 3D Model generation interfaces
 export interface Model3DGenerationOptions {
   prompt?: string;
   inputImagePaths?: string[];
   outputPath: string;
-  model: 'trellis' | 'hunyuan3d' | 'hunyuan-world';
-  variant?: 'single' | 'multi' | 'single-turbo' | 'multi-turbo';
-  format?: 'glb' | 'gltf';
+  model: Model3DModel;
+  variant?: Model3DVariant;
+  format?: Model3DFormat;
   quality?: 'standard' | 'high';
   textured_mesh?: boolean; // For Hunyuan3D - adds textures (3x cost)
 }
@@ -338,7 +371,7 @@ export const hunyuan3DGenerateMulti = async (args: {
     'Content-Type': 'application/json'
   };
   
-  const endpoint = 'https://fal.run/fal-ai/hunyuan3d-2.0-multi-image';
+  const endpoint = 'https://fal.run/fal-ai/hunyuan3d/v2/multi-view';
   
   const response = await makeHTTPRequest(endpoint, 'POST', headers, body);
   
@@ -397,7 +430,7 @@ export const hunyuan3DGenerateSingleTurbo = async (args: {
     'Content-Type': 'application/json'
   };
   
-  const endpoint = 'https://fal.run/fal-ai/hunyuan3d-2.0-turbo';
+  const endpoint = 'https://fal.run/fal-ai/hunyuan3d/v2/turbo';
   
   const response = await makeHTTPRequest(endpoint, 'POST', headers, body);
   
@@ -461,7 +494,7 @@ export const hunyuan3DGenerateMultiTurbo = async (args: {
     'Content-Type': 'application/json'
   };
   
-  const endpoint = 'https://fal.run/fal-ai/hunyuan3d-2.0-multi-image-turbo';
+  const endpoint = 'https://fal.run/fal-ai/hunyuan3d/v2/multi-view/turbo';
   
   const response = await makeHTTPRequest(endpoint, 'POST', headers, body);
   

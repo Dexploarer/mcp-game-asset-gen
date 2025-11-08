@@ -8,7 +8,21 @@ import {
   hunyuanWorldGenerate3D,
   type Model3DGenerationOptions,
   type Model3DGenerationResult,
+  Model3DModel,
+  Model3DVariant,
+  Model3DFormat,
+  AVAILABLE_VARIANTS,
+  DEFAULT_VARIANTS,
 } from '../utils/model3dUtils.js';
+
+// Re-export enums for use in other modules
+export {
+  Model3DModel,
+  Model3DVariant,
+  Model3DFormat,
+  AVAILABLE_VARIANTS,
+  DEFAULT_VARIANTS,
+};
 import { generateImage } from './imageHelpers.js';
 import path from 'path';
 import { unlinkSync } from 'fs';
@@ -132,23 +146,41 @@ export const generateReferenceImages = async (
 
 // Helper function to determine which model variant to use
 export const selectModelVariant = (
-  model: 'trellis' | 'hunyuan3d' | 'hunyuan-world',
+  model: Model3DModel,
   inputImageCount: number,
   preferTurbo: boolean = false
-): 'single' | 'multi' | 'single-turbo' | 'multi-turbo' => {
-  if (model === 'trellis') {
-    return inputImageCount <= 1 ? 'single' : 'multi';
-  } else if (model === 'hunyuan-world') {
+): Model3DVariant => {
+  if (model === Model3DModel.TRELLIS) {
+    return inputImageCount <= 1 ? Model3DVariant.SINGLE : Model3DVariant.MULTI;
+  } else if (model === Model3DModel.HUNYUAN_WORLD) {
     // Hunyuan World only supports single image
-    return 'single';
+    return Model3DVariant.SINGLE;
   } else {
     // Hunyuan3D variants
     if (preferTurbo) {
-      return inputImageCount <= 1 ? 'single-turbo' : 'multi-turbo';
+      return inputImageCount <= 1 ? Model3DVariant.SINGLE_TURBO : Model3DVariant.MULTI_TURBO;
     } else {
-      return inputImageCount <= 1 ? 'single' : 'multi';
+      return inputImageCount <= 1 ? Model3DVariant.SINGLE : Model3DVariant.MULTI;
     }
   }
+};
+
+// Helper function to validate and get default variant
+export const validateAndGetVariant = (
+  model: Model3DModel,
+  variant?: Model3DVariant
+): Model3DVariant => {
+  if (!variant) {
+    return DEFAULT_VARIANTS[model];
+  }
+  
+  const availableVariants = AVAILABLE_VARIANTS[model];
+  if (!availableVariants.includes(variant as any)) {
+    console.warn(`Variant ${variant} not available for model ${model}. Using default: ${DEFAULT_VARIANTS[model]}`);
+    return DEFAULT_VARIANTS[model];
+  }
+  
+  return variant;
 };
 
 // Main 3D model generation function with automatic reference handling
@@ -332,9 +364,9 @@ export const validate3DModelOptions = (options: Model3DGenerationOptionsExtended
 };
 
 // Get default options for 3D model generation
-export const getDefault3DOptions = (model: 'trellis' | 'hunyuan3d' | 'hunyuan-world'): Partial<Model3DGenerationOptionsExtended> => {
+export const getDefault3DOptions = (model: Model3DModel): Partial<Model3DGenerationOptionsExtended> => {
   const baseDefaults = {
-    format: 'glb' as const,
+    format: Model3DFormat.GLB,
     autoGenerateReferences: true,
     referenceModel: 'gemini' as const,
     referenceViews: ['front', 'back', 'top'] as ('front' | 'back' | 'top')[],
@@ -342,25 +374,25 @@ export const getDefault3DOptions = (model: 'trellis' | 'hunyuan3d' | 'hunyuan-wo
   };
   
   switch (model) {
-    case 'trellis':
+    case Model3DModel.TRELLIS:
       return {
         ...baseDefaults,
-        model: 'trellis',
-        variant: 'multi', // Prefer multi for better quality
+        model: Model3DModel.TRELLIS,
+        variant: Model3DVariant.MULTI, // Prefer multi for better quality
       };
       
-    case 'hunyuan3d':
+    case Model3DModel.HUNYUAN3D:
       return {
         ...baseDefaults,
-        model: 'hunyuan3d',
-        variant: 'multi', // Prefer multi for better quality
+        model: Model3DModel.HUNYUAN3D,
+        variant: Model3DVariant.MULTI, // Prefer multi for better quality
       };
       
-    case 'hunyuan-world':
+    case Model3DModel.HUNYUAN_WORLD:
       return {
         ...baseDefaults,
-        model: 'hunyuan-world',
-        variant: 'single', // Only supports single
+        model: Model3DModel.HUNYUAN_WORLD,
+        variant: Model3DVariant.SINGLE, // Only supports single
       };
       
     default:
@@ -378,14 +410,14 @@ export const merge3DWithDefaults = (options: Model3DGenerationOptionsExtended): 
 export const generate3DModelSmart = async (
   prompt: string,
   outputPath: string,
-  model: 'trellis' | 'hunyuan3d' | 'hunyuan-world' = 'hunyuan3d',
+  model: Model3DModel = Model3DModel.HUNYUAN3D,
   options: Partial<Model3DGenerationOptionsExtended> = {}
 ): Promise<Model3DGenerationResult> => {
   const fullOptions: Model3DGenerationOptionsExtended = merge3DWithDefaults({
     prompt,
     outputPath,
     model,
-    variant: 'multi', // Ensure variant is always set
+    variant: Model3DVariant.MULTI, // Ensure variant is always set
     ...options,
   });
   
