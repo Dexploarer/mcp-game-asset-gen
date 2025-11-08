@@ -20,6 +20,7 @@ export interface Model3DGenerationOptions {
   variant?: 'single' | 'multi' | 'single-turbo' | 'multi-turbo';
   format?: 'glb' | 'gltf';
   quality?: 'standard' | 'high';
+  textured_mesh?: boolean; // For Hunyuan3D - adds textures (3x cost)
 }
 
 export interface Model3DGenerationResult {
@@ -113,6 +114,7 @@ export const trellisGenerate3DSingle = async (args: {
   imagePath: string;
   outputPath: string;
   format?: 'glb' | 'gltf';
+  texture_size?: 512 | 1024 | 2048;
 }): Promise<Model3DGenerationResult> => {
   const apiKey = getFalAIKey();
   
@@ -124,7 +126,12 @@ export const trellisGenerate3DSingle = async (args: {
   
   const body = {
     image_url: imageUri,
-    format: args.format || 'glb',
+    texture_size: args.texture_size || 1024,
+    ss_guidance_strength: 7.5,
+    ss_sampling_steps: 12,
+    slat_guidance_strength: 3,
+    slat_sampling_steps: 12,
+    mesh_simplify: 0.95,
   };
   
   const headers = {
@@ -143,11 +150,11 @@ export const trellisGenerate3DSingle = async (args: {
   // Download and save the 3D model
   const savedPaths: string[] = [];
   
-  if (response.model_url) {
-    const modelPath = await downloadAndSave3DModel(response.model_url, args.outputPath);
+  if (response.model_mesh && response.model_mesh.url) {
+    const modelPath = await downloadAndSave3DModel(response.model_mesh.url, args.outputPath);
     savedPaths.push(modelPath);
   } else {
-    throw new Error('No model URL in Trellis response');
+    throw new Error('No model mesh in Trellis response');
   }
   
   // Get model information
@@ -172,6 +179,8 @@ export const trellisGenerate3DMulti = async (args: {
   imagePaths: string[];
   outputPath: string;
   format?: 'glb' | 'gltf';
+  texture_size?: 512 | 1024 | 2048;
+  multiimage_algo?: 'stochastic' | 'multidiffusion';
 }): Promise<Model3DGenerationResult> => {
   const apiKey = getFalAIKey();
   
@@ -188,7 +197,13 @@ export const trellisGenerate3DMulti = async (args: {
   
   const body = {
     image_urls: imageUris,
-    format: args.format || 'glb',
+    texture_size: args.texture_size || 1024,
+    ss_guidance_strength: 7.5,
+    ss_sampling_steps: 12,
+    slat_guidance_strength: 3,
+    slat_sampling_steps: 12,
+    mesh_simplify: 0.95,
+    multiimage_algo: args.multiimage_algo || 'stochastic',
   };
   
   const headers = {
@@ -196,7 +211,7 @@ export const trellisGenerate3DMulti = async (args: {
     'Content-Type': 'application/json'
   };
   
-  const endpoint = 'https://fal.run/fal-ai/trellis-multi-image';
+  const endpoint = 'https://fal.run/fal-ai/trellis/multi';
   
   const response = await makeHTTPRequest(endpoint, 'POST', headers, body);
   
@@ -207,11 +222,11 @@ export const trellisGenerate3DMulti = async (args: {
   // Download and save the 3D model
   const savedPaths: string[] = [];
   
-  if (response.model_url) {
-    const modelPath = await downloadAndSave3DModel(response.model_url, args.outputPath);
+  if (response.model_mesh && response.model_mesh.url) {
+    const modelPath = await downloadAndSave3DModel(response.model_mesh.url, args.outputPath);
     savedPaths.push(modelPath);
   } else {
-    throw new Error('No model URL in Trellis Multi response');
+    throw new Error('No model mesh in Trellis Multi response');
   }
   
   // Get model information
@@ -236,6 +251,7 @@ export const hunyuan3DGenerateSingle = async (args: {
   imagePath: string;
   outputPath: string;
   format?: 'glb' | 'gltf';
+  textured_mesh?: boolean;
 }): Promise<Model3DGenerationResult> => {
   const apiKey = getFalAIKey();
   
@@ -246,8 +262,11 @@ export const hunyuan3DGenerateSingle = async (args: {
   }
   
   const body = {
-    image_url: imageUri,
-    format: args.format || 'glb',
+    input_image_url: imageUri,
+    num_inference_steps: 50,
+    guidance_scale: 7.5,
+    octree_resolution: 256,
+    textured_mesh: args.textured_mesh !== undefined ? args.textured_mesh : true, // Default to true
   };
   
   const headers = {
@@ -255,7 +274,7 @@ export const hunyuan3DGenerateSingle = async (args: {
     'Content-Type': 'application/json'
   };
   
-  const endpoint = 'https://fal.run/fal-ai/hunyuan3d-2.0';
+  const endpoint = 'https://fal.run/fal-ai/hunyuan3d/v2';
   
   const response = await makeHTTPRequest(endpoint, 'POST', headers, body);
   
@@ -266,11 +285,11 @@ export const hunyuan3DGenerateSingle = async (args: {
   // Download and save the 3D model
   const savedPaths: string[] = [];
   
-  if (response.model_url) {
-    const modelPath = await downloadAndSave3DModel(response.model_url, args.outputPath);
+  if (response.model_mesh && response.model_mesh.url) {
+    const modelPath = await downloadAndSave3DModel(response.model_mesh.url, args.outputPath);
     savedPaths.push(modelPath);
   } else {
-    throw new Error('No model URL in Hunyuan3D response');
+    throw new Error('No model mesh in Hunyuan3D response');
   }
   
   // Get model information
