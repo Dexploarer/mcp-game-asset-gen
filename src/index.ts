@@ -379,69 +379,12 @@ const allTools = [
       required: ['objectDescription', 'outputBasePath'],
     },
   },
-  {
-    name: 'image_to_3d',
-    description: 'Generate 3D models from images using advanced AI models (Trellis, Hunyuan3D 2.0, Hunyuan World) with automatic reference image generation and intelligent model selection',
-    inputSchema: {
-      type: 'object',
-      properties: {
-        prompt: {
-          type: 'string',
-          description: 'Description of the 3D model to generate (used for automatic reference image generation)',
-        },
-        outputPath: {
-          type: 'string',
-          description: 'Path where the generated 3D model should be saved (.glb or .gltf)',
-        },
-        inputImagePaths: {
-          type: 'array',
-          items: { type: 'string' },
-          description: 'Array of paths to input images or base64 URIs (data:image/png;base64,...). If not provided, reference images will be generated automatically.',
-        },
-        model: {
-          type: 'string',
-          enum: Object.values(Model3DModel),
-          description: '3D generation model: hunyuan3d (best quality, supports textures), trellis (good for objects), hunyuan-world (for scenes/worlds). Default: hunyuan3d',
-        },
-        variant: {
-          type: 'string',
-          enum: Object.values(Model3DVariant),
-          description: 'Model variant: single (1 image), multi (multiple images), or turbo versions for faster generation. Default: auto-selected based on model and input count',
-        },
-        format: {
-          type: 'string',
-          enum: Object.values(Model3DFormat),
-          description: 'Output format (default: glb for web/game compatibility)',
-        },
-        textured_mesh: {
-          type: 'boolean',
-          description: 'Generate textured mesh (Hunyuan3D only, 3x cost). Default: true for better quality',
-        },
-        autoGenerateReferences: {
-          type: 'boolean',
-          description: 'Automatically generate reference images from prompt if no input images provided (default: true)',
-        },
-        referenceModel: {
-          type: 'string',
-          enum: ['openai', 'gemini', 'falai'],
-          description: 'Model to use for automatic reference image generation (default: gemini)',
-        },
-        referenceViews: {
-          type: 'array',
-          items: { type: 'string', enum: ['front', 'back', 'top', 'left', 'right'] },
-          description: 'Views to generate for reference images (default: ["front", "back", "top"])',
-        },
-        cleanupReferences: {
-          type: 'boolean',
-          description: 'Clean up automatically generated reference images after 3D generation (default: true)',
-        },
-      },
-      required: ['outputPath'],
-    },
-  },
+  // REMOVED: image_to_3d synchronous tool - causes MCP timeouts
+// All 3D generation operations take longer than 60-second MCP timeout
+// Use image_to_3d_async instead for reliable background processing
   {
     name: 'image_to_3d_async',
-    description: 'Generate 3D models asynchronously with status tracking. Returns a status file path immediately and processes in background to avoid timeouts. Use this for long-running 3D generation tasks.',
+    description: 'Generate 3D models from images using advanced AI models (Trellis, Hunyuan3D 2.0, Hunyuan World) with automatic reference image generation and background processing. Returns a status file path immediately for progress tracking to avoid MCP timeouts. This is the recommended method for all 3D generation tasks.',
     inputSchema: {
       type: 'object',
       properties: {
@@ -644,32 +587,9 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
         };
       }
 
-      case 'image_to_3d': {
-        if (!args) {
-          throw new Error('Arguments are required for image_to_3d');
-        }
-        if (!args.outputPath) {
-          throw new Error('outputPath is required for image_to_3d');
-        }
-        
-        // Use hunyuan3d as default model for best quality
-        const selectedModel = (args as any).model || 'hunyuan3d';
-        
-        const result = await generate3DModelSmart(
-          (args as any).prompt || '',
-          (args as any).outputPath,
-          selectedModel,
-          args as any
-        );
-        return {
-          content: [
-            {
-              type: 'text',
-              text: JSON.stringify(result),
-            },
-          ],
-        };
-      }
+      // REMOVED: image_to_3d synchronous handler - causes MCP timeouts
+// All 3D generation operations exceed 60-second MCP timeout limit
+// Use image_to_3d_async instead for reliable background processing
 
       case 'image_to_3d_async': {
         if (!args) {
@@ -709,18 +629,40 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
               type: 'text',
               text: `3D model generation started in background. Status file: ${result.statusPath}
 
-You can monitor progress by reading the status file. The file will contain:
-- status: "pending" | "processing" | "completed" | "failed"
-- progress: 0-100
-- message: Current status description
-- result: Final generation result (when completed)
-- error: Error details (if failed)
-- logs: Detailed execution log
+STATUS FILE FORMAT:
+The status file is a JSON file that updates in real-time with:
+{
+  "id": "task_id",
+  "status": "pending" | "processing" | "completed" | "failed",
+  "progress": 0-100,
+  "message": "Current status description",
+  "startTime": "2025-01-08T13:20:00.000Z",
+  "endTime": "2025-01-08T13:25:30.000Z",
+  "result": { /* Model3DGenerationResult when completed */ },
+  "error": "Error message (if failed)",
+  "logs": [
+    "[2025-01-08T13:20:00.000Z] Starting 3D generation...",
+    "[2025-01-08T13:20:05.000Z] Generated 3 reference images",
+    "..."
+  ]
+}
 
-Example usage:
-- Read the file periodically to check progress
-- When status is "completed", the result field contains the generation details
-- When status is "failed", the error field contains the error details`,
+MONITORING USAGE:
+1. Read the status file periodically: JSON.parse(readFileSync('${result.statusPath}'))
+2. Check status field for completion state
+3. When status === "completed": use result.savedPaths for generated model files
+4. When status === "failed": check error field for failure details
+5. Use logs array for detailed progress information
+
+PROGRESS STAGES:
+- 5%: Validating options and preparing inputs
+- 10%: Checking input images
+- 20%: Generating reference images (if needed)
+- 30%: Preparing 3D generation request
+- 40%: Calling API (Trellis/Hunyuan3D)
+- 50%: Processing with model
+- 90%: Finalizing result
+- 100%: Completed`,
             },
           ],
         };

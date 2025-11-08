@@ -130,8 +130,8 @@ describe('ALLOWED_TOOLS Environment Variable', () => {
     // Import the server module fresh to test the environment variable
     const { allTools } = await import('./index.js');
     
-    // Should return all 11 tools (9 original + 2 3D tools [sync + async])
-    expect(allTools).toHaveLength(11);
+    // Should return all 10 tools (9 original + async 3D tool)
+    expect(allTools).toHaveLength(10);
     
     const toolNames = allTools.map(tool => tool.name);
     expect(toolNames).toContain('openai_generate_image');
@@ -143,7 +143,6 @@ describe('ALLOWED_TOOLS Environment Variable', () => {
     expect(toolNames).toContain('generate_pixel_art_character');
     expect(toolNames).toContain('generate_texture');
     expect(toolNames).toContain('generate_object_sheet');
-    expect(toolNames).toContain('image_to_3d');
     expect(toolNames).toContain('image_to_3d_async');
   });
 
@@ -154,7 +153,7 @@ describe('ALLOWED_TOOLS Environment Variable', () => {
     const { allTools } = await import('./index.js');
     
     // The allTools array should still contain all tools, but the filtering happens in ListToolsRequestSchema
-    expect(allTools).toHaveLength(11);
+    expect(allTools).toHaveLength(10);
     
     // Test that filtering logic works correctly
     const allowedToolNames = process.env.ALLOWED_TOOLS.split(",").map((t) => t.trim());
