@@ -38,19 +38,26 @@ Three.js sample scene in [demo video](https://www.youtube.com/watch?v=KSVpJFqF5h
 - **Game Development Focus**: Optimized for creating game assets
 - **Hyperscape Tools**: 10+ specialized tools for MMORPG asset generation
 
-## Installation
+## Quick Start
 
 ```bash
-# Clone the repository
-git clone <repository-url>
+# 1. Clone and install
+git clone https://github.com/Dexploarer/mcp-game-asset-gen.git
 cd mcp-game-asset-gen
-
-# Install dependencies
 npm install
 
-# Build the project
+# 2. Configure API keys
+cp .env.example .env
+# Edit .env and add your AI_GATEWAY_API_KEY
+
+# 3. Build the project
 npm run build
+
+# 4. Configure in Claude Desktop or your MCP client
+# See docs/ENVIRONMENT_SETUP.md for detailed setup
 ```
+
+📖 **[Complete Environment Setup Guide](docs/ENVIRONMENT_SETUP.md)** - Detailed instructions for installation, configuration, and viewing generated assets
 
 ## Development
 
