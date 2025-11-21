@@ -13,6 +13,7 @@ import { saveBase64Image } from '../utils/imageUtils.js';
 
 /**
  * Gateway-based image generation options
+ * Now defaults to modern, high-quality styles
  */
 export interface GatewayImageOptions {
   prompt: string;
@@ -22,9 +23,9 @@ export interface GatewayImageOptions {
   size?: { width: number; height: number };
   n?: number;
   streaming?: boolean;
-  assetType?: 'character' | 'weapon' | 'armor' | 'tool' | 'resource' | 'building';
-  style?: 'runescapeLowPoly' | 'marvelStyle' | 'skyrimStyle' | 'stylized';
-  materialTier?: 'bronze' | 'steel' | 'mithril';
+  assetType?: 'character' | 'humanoid' | 'npc' | 'creature' | 'weapon' | 'armor' | 'tool' | 'resource' | 'consumable' | 'building';
+  style?: 'stylized' | 'realistic' | 'skyrimStyle' | 'marvelStyle' | 'runescapeLowPoly' | 'genericLowPoly';
+  materialTier?: string; // Can be any material ID from materialpresets.json
 }
 
 /**
@@ -245,13 +246,13 @@ export async function gatewayGenerateImageVariations(
 export async function gatewayGenerateCharacter(
   characterDescription: string,
   outputPath: string,
-  materialTier?: 'bronze' | 'steel' | 'mithril'
+  materialTier?: string
 ): Promise<string> {
   return gatewayGenerateImage({
     prompt: characterDescription,
     outputPath,
     assetType: 'character',
-    style: 'runescapeLowPoly',
+    style: 'stylized', // Modern stylized style (default)
     materialTier,
   });
 }
@@ -262,13 +263,13 @@ export async function gatewayGenerateCharacter(
 export async function gatewayGenerateWeapon(
   weaponDescription: string,
   outputPath: string,
-  materialTier?: 'bronze' | 'steel' | 'mithril'
+  materialTier?: string
 ): Promise<string> {
   return gatewayGenerateImage({
     prompt: weaponDescription,
     outputPath,
     assetType: 'weapon',
-    style: 'runescapeLowPoly',
+    style: 'stylized', // Modern stylized style (default)
     materialTier,
   });
 }
@@ -279,13 +280,13 @@ export async function gatewayGenerateWeapon(
 export async function gatewayGenerateArmor(
   armorDescription: string,
   outputPath: string,
-  materialTier?: 'bronze' | 'steel' | 'mithril'
+  materialTier?: string
 ): Promise<string> {
   return gatewayGenerateImage({
     prompt: armorDescription,
     outputPath,
     assetType: 'armor',
-    style: 'runescapeLowPoly',
+    style: 'stylized', // Modern stylized style (default)
     materialTier,
   });
 }
@@ -301,7 +302,7 @@ export async function gatewayGenerateBuilding(
     prompt: buildingDescription,
     outputPath,
     assetType: 'building',
-    style: 'runescapeLowPoly',
+    style: 'stylized', // Modern stylized style (default)
   });
 }
 
@@ -329,7 +330,7 @@ export async function gatewayGenerateEquipmentSet(
 
   return gatewayGenerateImageVariations(baseDescription, variations, {
     assetType,
-    style: 'runescapeLowPoly',
+    style: 'stylized', // Modern stylized style (default)
     model,
   });
 }

@@ -6,19 +6,29 @@ A Model Context Protocol (MCP) server for generating various types of assets inc
 
 **🎮 NEW: Hyperscape Integration** - Now optimized for generating assets for the [Hyperscape MMORPG](https://github.com/HyperscapeAI/hyperscape) with AI Gateway support!
 
+**✨ NEW: Modern Asset Styles** - Now defaults to modern, high-quality game assets with PBR materials! Stylized hand-painted assets are the new default. Legacy low-poly styles still available.
+
 Three.js sample scene in [demo video](https://www.youtube.com/watch?v=KSVpJFqF5hg) located at [flux159/three-generator](https://github.com/Flux159/three-generator).
 
 ## Features
 
-### 🚀 AI Gateway Integration (NEW)
+### 🚀 AI Gateway Integration
 - **Unified API**: Single interface for multiple AI providers (OpenAI, Google Gemini)
 - **Model Discovery**: Dynamically discover and select the best models
 - **Cost Optimization**: Automatic routing to cost-effective models
-- **Hyperscape Optimized**: Pre-configured for RuneScape-style low-poly assets
-- **Material Tiers**: Built-in bronze, steel, and mithril equipment variants
+- **Hyperscape Optimized**: Uses Hyperscape's proven prompt system
+- **Material Tiers**: 10+ materials (bronze, steel, mithril, leather, oak, dragon, etc.)
 - **Streaming Support**: Real-time progress updates during generation
 
-📖 **[Read the full AI Gateway Integration Guide](docs/AI_GATEWAY_INTEGRATION.md)**
+📖 **[AI Gateway Integration Guide](docs/AI_GATEWAY_INTEGRATION.md)** | **[Modern Asset Style Guide](docs/MODERN_ASSET_STYLE.md)**
+
+### 🎨 Modern Asset Styles (NEW)
+- **Default: Stylized** - Modern hand-painted game assets with PBR materials
+- **Realistic** - High-quality photorealistic rendering
+- **Skyrim Style** - Fantasy RPG quality
+- **Marvel Style** - Cinematic game quality
+- **Legacy Low-Poly** - RuneScape 2007 and generic low-poly styles (backward compatible)
+- **High Quality**: High polygon count, detailed geometry, modern game-ready assets
 
 ### Core Features
 - **Image Generation**: Support for multiple providers (OpenAI DALL-E, Google Gemini, Fal.ai)

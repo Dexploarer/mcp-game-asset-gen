@@ -3,10 +3,18 @@
  *
  * This module sets up the Vercel AI Gateway for unified model inference
  * across multiple providers (OpenAI, Google, etc.)
+ *
+ * Uses Hyperscape prompt system for modern, high-quality game assets
  */
 
 import { createGateway } from '@ai-sdk/gateway';
 import { generateText, streamText, embedMany } from 'ai';
+import fs from 'fs';
+import path from 'path';
+import { fileURLToPath } from 'url';
+
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
 
 /**
  * Gateway provider instance
@@ -44,29 +52,93 @@ export const HYPERSCAPE_MODELS = {
 } as const;
 
 /**
- * Asset generation styles specific to Hyperscape
+ * Load Hyperscape prompts from JSON files
+ */
+function loadPrompts() {
+  const promptsDir = path.join(__dirname, '../../prompts');
+
+  try {
+    const gameStyles = JSON.parse(fs.readFileSync(path.join(promptsDir, 'game-style-prompts.json'), 'utf-8'));
+    const assetTypes = JSON.parse(fs.readFileSync(path.join(promptsDir, 'asset-type-prompts.json'), 'utf-8'));
+    const materialPresets = JSON.parse(fs.readFileSync(path.join(promptsDir, 'material-presets.json'), 'utf-8'));
+    const generationPrompts = JSON.parse(fs.readFileSync(path.join(promptsDir, 'generation-prompts.json'), 'utf-8'));
+    const gpt4Prompts = JSON.parse(fs.readFileSync(path.join(promptsDir, 'gpt4-enhancement-prompts.json'), 'utf-8'));
+
+    return { gameStyles, assetTypes, materialPresets, generationPrompts, gpt4Prompts };
+  } catch (error) {
+    console.error('[Gateway] Failed to load Hyperscape prompts:', error);
+    // Return defaults if files don't exist
+    return {
+      gameStyles: { default: {}, custom: {} },
+      assetTypes: { avatar: { default: {} }, item: { default: {} } },
+      materialPresets: [],
+      generationPrompts: {},
+      gpt4Prompts: {},
+    };
+  }
+}
+
+const prompts = loadPrompts();
+
+/**
+ * Asset generation styles from Hyperscape
+ * Modern high-quality styles are now the default
  */
 export const HYPERSCAPE_STYLES = {
-  // Default RuneScape 2007 style
-  runescapeLowPoly: {
-    description: 'Low-poly RuneScape 2007 style with blocky geometry and flat-shaded surfaces',
-    keywords: ['low-poly', 'blocky', 'flat-shaded', 'game-ready', 'simple textures', 'clean geometry'],
-  },
-
-  // Alternative styles
-  marvelStyle: {
-    description: 'Marvel-style comic book aesthetic with bold colors',
-    keywords: ['marvel', 'comic', 'bold colors', 'stylized', 'heroic'],
-  },
-
-  skyrimStyle: {
-    description: 'Elder Scrolls Skyrim-style medieval fantasy',
-    keywords: ['skyrim', 'medieval', 'fantasy', 'realistic textures', 'detailed'],
-  },
-
+  // Modern stylized (NEW DEFAULT) - hand-painted game assets
   stylized: {
-    description: 'Stylized game art with exaggerated proportions',
-    keywords: ['stylized', 'cartoon', 'exaggerated', 'vibrant'],
+    id: 'stylized',
+    name: 'Stylized Hand-Painted',
+    description: prompts.gameStyles.custom?.stylized?.base || 'Stylized hand painted game asset',
+    keywords: ['stylized', 'hand-painted', 'game-ready', 'modern', 'vibrant colors', 'clean topology'],
+    isModern: true,
+  },
+
+  // Modern realistic - high-quality realistic rendering
+  realistic: {
+    id: 'realistic',
+    name: 'Realistic',
+    description: prompts.gameStyles.custom?.realistic?.base || 'Realistic modern game asset',
+    keywords: ['realistic', 'PBR materials', 'high-detail', 'modern game', 'photorealistic', 'detailed textures'],
+    isModern: true,
+  },
+
+  // Skyrim-style - fantasy RPG quality
+  skyrimStyle: {
+    id: 'skyrim-style',
+    name: 'Skyrim Style',
+    description: prompts.gameStyles.custom?.['skyrim-style']?.base || 'Skyrim style quality and design',
+    keywords: ['skyrim-style', 'fantasy RPG', 'medieval', 'detailed', 'game-ready'],
+    isModern: true,
+  },
+
+  // Marvel-style - cinematic game quality
+  marvelStyle: {
+    id: 'marvel',
+    name: 'Marvel Cinematic',
+    description: prompts.gameStyles.custom?.marvel?.base || 'Modern Marvel movie styled design and quality, high resolution, yet 3D game like',
+    keywords: ['marvel-style', 'cinematic', 'high-quality', 'modern', 'heroic', 'detailed'],
+    isModern: true,
+  },
+
+  // RuneScape low-poly (legacy option)
+  runescapeLowPoly: {
+    id: 'runescape',
+    name: 'RuneScape 2007',
+    description: prompts.gameStyles.default?.runescape?.base || 'Low-poly RuneScape 2007',
+    keywords: ['low-poly', 'blocky', 'flat-shaded', 'runescape2007', 'simple geometry'],
+    isModern: false,
+    legacy: true,
+  },
+
+  // Generic low-poly (legacy option)
+  genericLowPoly: {
+    id: 'generic',
+    name: 'Generic Low-Poly',
+    description: prompts.gameStyles.default?.generic?.base || 'low-poly 3D game asset style',
+    keywords: ['low-poly', 'game-asset', 'simple', 'basic geometry'],
+    isModern: false,
+    legacy: true,
   },
 } as const;
 
@@ -75,58 +147,110 @@ export const HYPERSCAPE_STYLES = {
  */
 export const HYPERSCAPE_ASSET_TYPES = {
   character: {
-    defaultPromptSuffix: 'humanoid character in T-pose, game-ready, low-poly style, 1.7m height',
+    category: 'avatar',
+    type: 'character',
+    defaultPromptSuffix: 'standing in T-pose with arms stretched out horizontally, front view on neutral background, modern game-ready quality',
+    posePrompt: prompts.generationPrompts.posePrompts?.avatar?.tpose || 'standing in T-pose with arms stretched out horizontally',
     imageSize: { width: 1024, height: 1024 },
+    placeholder: prompts.assetTypes.avatar?.default?.character?.placeholder,
+  },
+
+  humanoid: {
+    category: 'avatar',
+    type: 'humanoid',
+    defaultPromptSuffix: 'humanoid character in T-pose with clear proportions, front view, modern game-ready quality',
+    posePrompt: prompts.generationPrompts.posePrompts?.avatar?.tpose || 'standing in T-pose with arms stretched out horizontally',
+    imageSize: { width: 1024, height: 1024 },
+    placeholder: prompts.assetTypes.avatar?.default?.humanoid?.placeholder,
+  },
+
+  npc: {
+    category: 'avatar',
+    type: 'npc',
+    defaultPromptSuffix: 'NPC character in T-pose, ready for animation, modern game-ready quality',
+    posePrompt: prompts.generationPrompts.posePrompts?.avatar?.tpose || 'standing in T-pose with arms stretched out horizontally',
+    imageSize: { width: 1024, height: 1024 },
+    placeholder: prompts.assetTypes.avatar?.default?.npc?.placeholder,
+  },
+
+  creature: {
+    category: 'avatar',
+    type: 'creature',
+    defaultPromptSuffix: 'creature in a neutral pose displaying its features, modern game-ready quality',
+    imageSize: { width: 1024, height: 1024 },
+    placeholder: prompts.assetTypes.avatar?.default?.creature?.placeholder,
   },
 
   weapon: {
-    defaultPromptSuffix: 'game weapon asset, centered, with clear grip point, low-poly',
+    category: 'item',
+    type: 'weapon',
+    defaultPromptSuffix: 'full weapon clearly displayed on neutral background, centered composition, modern game-ready quality',
     imageSize: { width: 1024, height: 1024 },
+    placeholder: prompts.assetTypes.item?.default?.weapon?.placeholder,
   },
 
   armor: {
-    defaultPromptSuffix: 'armor piece, game-ready, fitted to humanoid character, low-poly',
+    category: 'item',
+    type: 'armor',
+    defaultPromptSuffix: 'floating armor piece shaped for T-pose body fitting, openings positioned at correct angles for T-pose (horizontal for shoulders), hollow openings, no armor stand or mannequin, modern game-ready quality',
+    posePrompt: prompts.generationPrompts.posePrompts?.armor?.generic,
     imageSize: { width: 1024, height: 1024 },
+    placeholder: prompts.assetTypes.item?.default?.armor?.placeholder,
+    critical: 'CRITICAL: armor must be SHAPED FOR T-POSE BODY - shoulder openings pointing straight sideways at 90 degrees',
   },
 
   tool: {
-    defaultPromptSuffix: 'tool asset, game-ready, centered, low-poly',
+    category: 'item',
+    type: 'tool',
+    defaultPromptSuffix: 'tool from a clear angle displaying its functionality, centered on neutral background, modern game-ready quality',
     imageSize: { width: 1024, height: 1024 },
+    placeholder: prompts.assetTypes.item?.default?.tool?.placeholder,
   },
 
   resource: {
-    defaultPromptSuffix: 'resource item, game-ready, icon-style, low-poly',
+    category: 'item',
+    type: 'resource',
+    defaultPromptSuffix: 'resource material or item in detail, icon-style presentation, modern game-ready quality',
     imageSize: { width: 512, height: 512 },
+    placeholder: prompts.assetTypes.item?.default?.resource?.placeholder,
+  },
+
+  consumable: {
+    category: 'item',
+    type: 'consumable',
+    defaultPromptSuffix: 'consumable item clearly displayed with recognizable features, modern game-ready quality',
+    imageSize: { width: 512, height: 512 },
+    placeholder: prompts.assetTypes.item?.default?.consumable?.placeholder,
   },
 
   building: {
-    defaultPromptSuffix: 'building structure, game-ready, with clear entry points, low-poly',
+    category: 'item',
+    type: 'building',
+    defaultPromptSuffix: 'building structure from an isometric view, clear architecture, modern game-ready quality',
     imageSize: { width: 1024, height: 1024 },
+    placeholder: prompts.assetTypes.item?.default?.building?.placeholder,
   },
 } as const;
 
 /**
- * Material tier configurations for Hyperscape
+ * Material tier configurations from Hyperscape
+ * Loaded from material-presets.json and modernized
  */
-export const HYPERSCAPE_MATERIAL_TIERS = {
-  bronze: {
-    color: '#CD7F32',
-    description: 'Bronze tier - basic starter equipment',
-    keywords: ['bronze', 'copper-brown', 'weathered metal', 'basic'],
-  },
-
-  steel: {
-    color: '#B0C4DE',
-    description: 'Steel tier - intermediate equipment',
-    keywords: ['steel', 'silver-gray', 'polished metal', 'refined'],
-  },
-
-  mithril: {
-    color: '#9966CC',
-    description: 'Mithril tier - advanced equipment',
-    keywords: ['mithril', 'purple-blue', 'magical metal', 'enchanted', 'glowing'],
-  },
-} as const;
+export const HYPERSCAPE_MATERIAL_TIERS = prompts.materialPresets.reduce((acc: any, preset: any) => {
+  acc[preset.id] = {
+    id: preset.id,
+    name: preset.name,
+    displayName: preset.displayName,
+    category: preset.category,
+    tier: preset.tier,
+    color: preset.color,
+    description: preset.description,
+    // Remove "RuneScape 2007 style" and make it modern
+    stylePrompt: preset.stylePrompt.replace(/,?\s*RuneScape 2007 style/gi, ', modern game-ready quality, PBR materials'),
+    keywords: [preset.displayName.toLowerCase(), preset.category, `tier-${preset.tier}`, 'modern', 'game-ready'],
+  };
+  return acc;
+}, {});
 
 /**
  * Get available models from AI Gateway
@@ -150,12 +274,13 @@ export async function getModelsByType(modelType: 'language' | 'embedding') {
 
 /**
  * Generate Hyperscape-specific enhanced prompt
+ * Now defaults to modern, high-quality asset style
  */
 export function enhancePromptForHyperscape(
   userPrompt: string,
   assetType: keyof typeof HYPERSCAPE_ASSET_TYPES,
-  style: keyof typeof HYPERSCAPE_STYLES = 'runescapeLowPoly',
-  materialTier?: keyof typeof HYPERSCAPE_MATERIAL_TIERS
+  style: keyof typeof HYPERSCAPE_STYLES = 'stylized', // Changed default to 'stylized' (modern)
+  materialTier?: string
 ): string {
   const assetConfig = HYPERSCAPE_ASSET_TYPES[assetType];
   const styleConfig = HYPERSCAPE_STYLES[style];
@@ -166,15 +291,68 @@ export function enhancePromptForHyperscape(
   // Add style keywords
   enhancedPrompt += `, ${styleConfig.keywords.join(', ')}`;
 
-  // Add material tier if specified
+  // Add material tier with modern quality if specified
   if (materialConfig) {
-    enhancedPrompt += `, ${materialConfig.keywords.join(', ')}`;
+    enhancedPrompt += `, ${materialConfig.stylePrompt}`;
+  }
+
+  // Add critical requirements for armor (if present)
+  if ('critical' in assetConfig && assetConfig.critical) {
+    enhancedPrompt += `, ${(assetConfig as any).critical}`;
   }
 
   // Add asset type suffix
   enhancedPrompt += `, ${assetConfig.defaultPromptSuffix}`;
 
+  // Add modern quality indicators (unless using legacy style)
+  if (styleConfig.isModern) {
+    enhancedPrompt += ', high polygon count, detailed geometry, modern game quality';
+  }
+
   return enhancedPrompt;
+}
+
+/**
+ * Get style configuration by ID
+ */
+export function getStyle(styleId: string) {
+  const style = Object.values(HYPERSCAPE_STYLES).find((s) => s.id === styleId);
+  return style || HYPERSCAPE_STYLES.stylized; // Default to stylized if not found
+}
+
+/**
+ * Get material configuration by ID
+ */
+export function getMaterial(materialId: string) {
+  return HYPERSCAPE_MATERIAL_TIERS[materialId];
+}
+
+/**
+ * Get all available styles
+ */
+export function getAllStyles() {
+  return Object.values(HYPERSCAPE_STYLES);
+}
+
+/**
+ * Get all available materials
+ */
+export function getAllMaterials() {
+  return Object.values(HYPERSCAPE_MATERIAL_TIERS);
+}
+
+/**
+ * Get modern (non-legacy) styles only
+ */
+export function getModernStyles() {
+  return Object.values(HYPERSCAPE_STYLES).filter((s) => s.isModern);
+}
+
+/**
+ * Get materials by category
+ */
+export function getMaterialsByCategory(category: string) {
+  return Object.values(HYPERSCAPE_MATERIAL_TIERS).filter((m: any) => m.category === category);
 }
 
 export {
