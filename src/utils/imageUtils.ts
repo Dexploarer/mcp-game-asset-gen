@@ -3,7 +3,10 @@ import { promisify } from "util";
 import { config } from "dotenv";
 import path from "path";
 import { readFileSync, writeFileSync, mkdirSync, unlinkSync } from "fs";
-import { createCanvas, loadImage } from "canvas";
+
+// Canvas module will be dynamically imported if needed
+// This allows the module to work even if canvas native dependencies are not installed
+let canvasModule: any = null;
 
 // Load environment variables from the root .env file
 config({ path: path.resolve(process.cwd(), ".env") });
@@ -248,9 +251,20 @@ const convertImagePixelsToTransparent = async (
   tolerance: number
 ): Promise<Buffer> => {
   try {
+    // Dynamically import canvas module if not already loaded
+    if (!canvasModule) {
+      try {
+        canvasModule = await import("canvas" as any);
+      } catch (err) {
+        throw new Error("Canvas module is not available. Install canvas native dependencies to enable background removal.");
+      }
+    }
+
+    const { createCanvas, loadImage } = canvasModule;
+
     // Load the image
     const image = await loadImage(imageBuffer);
-    
+
     // Create canvas with the same dimensions
     const canvas = createCanvas(image.width, image.height);
     const ctx = canvas.getContext('2d');

@@ -4,29 +4,71 @@
 
 A Model Context Protocol (MCP) server for generating various types of assets including images, videos, audio, and 3D models for game development.
 
+**🎮 NEW: Hyperscape Integration** - Now optimized for generating assets for the [Hyperscape MMORPG](https://github.com/HyperscapeAI/hyperscape) with AI Gateway support!
+
+**✨ NEW: Modern Asset Styles** - Now defaults to modern, high-quality game assets with PBR materials! Stylized hand-painted assets are the new default. Legacy low-poly styles still available.
+
 Three.js sample scene in [demo video](https://www.youtube.com/watch?v=KSVpJFqF5hg) located at [flux159/three-generator](https://github.com/Flux159/three-generator).
 
 ## Features
 
+### 🚀 AI Gateway Integration
+- **Unified API**: Single interface for multiple AI providers (OpenAI, Google Gemini)
+- **Model Discovery**: Dynamically discover and select the best models
+- **Cost Optimization**: Automatic routing to cost-effective models
+- **Hyperscape Optimized**: Uses Hyperscape's proven prompt system
+- **Material Tiers**: 10+ materials (bronze, steel, mithril, leather, oak, dragon, etc.)
+- **Streaming Support**: Real-time progress updates during generation
+
+📖 **[AI Gateway Integration Guide](docs/AI_GATEWAY_INTEGRATION.md)** | **[Modern Asset Style Guide](docs/MODERN_ASSET_STYLE.md)**
+
+### 🎨 Modern Asset Styles (NEW)
+- **Default: Stylized** - Modern hand-painted game assets with PBR materials
+- **Realistic** - High-quality photorealistic rendering
+- **Skyrim Style** - Fantasy RPG quality
+- **Marvel Style** - Cinematic game quality
+- **Legacy Low-Poly** - RuneScape 2007 and generic low-poly styles (backward compatible)
+- **High Quality**: High polygon count, detailed geometry, modern game-ready assets
+
+### 🎭 VRM Conversion (NEW)
+- **GLB to VRM**: Convert GLB models to VRM 1.0 format with automatic bone mapping
+- **Standardized Skeleton**: Automatic mapping to VRM HumanoidBone standard
+- **Height Normalization**: Characters normalized to ~1.6m height
+- **Coordinate System**: Automatic conversion from Z-up to Y-up
+- **T-Pose Ready**: Ensures compatibility with animation systems
+- **Hyperscape Compatible**: Works seamlessly with Hyperscape/Hyperfy animation pipeline
+- **Metadata Support**: Include avatar name, author, licensing, and commercial usage info
+
+📖 **[VRM Conversion Guide](docs/VRM_CONVERSION.md)**
+
+### Core Features
 - **Image Generation**: Support for multiple providers (OpenAI DALL-E, Google Gemini, Fal.ai)
 - **Video Generation**: Coming soon
-- **Audio Generation**: Coming soon  
+- **Audio Generation**: Coming soon
 - **3D Model Generation**: Generate 3D models using FAL.ai Trellis and Hunyuan3D 2.0
 - **Game Development Focus**: Optimized for creating game assets
+- **Hyperscape Tools**: 10+ specialized tools for MMORPG asset generation
 
-## Installation
+## Quick Start
 
 ```bash
-# Clone the repository
-git clone <repository-url>
+# 1. Clone and install
+git clone https://github.com/Dexploarer/mcp-game-asset-gen.git
 cd mcp-game-asset-gen
-
-# Install dependencies
 npm install
 
-# Build the project
+# 2. Configure API keys
+cp .env.example .env
+# Edit .env and add your AI_GATEWAY_API_KEY
+
+# 3. Build the project
 npm run build
+
+# 4. Configure in Claude Desktop or your MCP client
+# See docs/ENVIRONMENT_SETUP.md for detailed setup
 ```
+
+📖 **[Complete Environment Setup Guide](docs/ENVIRONMENT_SETUP.md)** - Detailed instructions for installation, configuration, and viewing generated assets
 
 ## Development
 
@@ -151,6 +193,17 @@ The server provides tools and prompts for asset generation through the MCP proto
     - `referenceModel` (optional): Model to use for automatic reference image generation ('openai', 'gemini', 'falai', default: gemini)
     - `referenceViews` (optional): Views to generate for reference images (default: ["front", "back", "top"])
     - `cleanupReferences` (optional): Clean up automatically generated reference images after 3D generation (default: true)
+
+#### VRM Conversion
+- `glb_to_vrm`: Convert GLB models to VRM 1.0 format with automatic bone mapping and normalization
+  - Parameters:
+    - `inputPath` (required): Path to the input GLB file to convert
+    - `outputPath` (required): Path where the output VRM file will be saved
+    - `avatarName` (optional): Name of the avatar (used in VRM metadata)
+    - `author` (optional): Author name (used in VRM metadata)
+    - `version` (optional): Version string (used in VRM metadata)
+    - `licenseUrl` (optional): URL to license information
+    - `commercialUsage` (optional): Commercial usage permission ('personalNonProfit', 'personalProfit', 'corporation')
 
 ### Available Prompts
 
