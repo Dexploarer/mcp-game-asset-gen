@@ -34,6 +34,8 @@ import {
 import { HYPERSCAPE_TOOLS, HYPERSCAPE_TOOL_HANDLERS } from './tools/hypescapeTools.js';
 import { MODEL_DISCOVERY_TOOLS, MODEL_DISCOVERY_HANDLERS } from './tools/modelDiscovery.js';
 import { gatewayGenerateImage, gatewayGenerateImageStreaming } from './providers/gatewayImageProviders.js';
+// VRM conversion imports
+import { VRM_TOOLS, VRM_TOOL_HANDLERS } from './tools/vrmTools.js';
 
 // Check environment variables for tool filtering
 const allowedToolsEnv = process.env.ALLOWED_TOOLS;
@@ -536,6 +538,9 @@ but with live progress feedback.`,
 
   // ===== MODEL DISCOVERY TOOLS =====
   ...MODEL_DISCOVERY_TOOLS,
+
+  // ===== VRM CONVERSION TOOLS =====
+  ...VRM_TOOLS,
 ];
 
 const server = new Server(
@@ -827,6 +832,15 @@ PROGRESS STAGES:
             },
           ],
         };
+      }
+
+      // ===== VRM CONVERSION TOOLS =====
+      case 'glb_to_vrm': {
+        const handler = VRM_TOOL_HANDLERS[name];
+        if (!handler) {
+          throw new Error(`No handler found for VRM tool: ${name}`);
+        }
+        return await handler(args as any);
       }
 
       default:
