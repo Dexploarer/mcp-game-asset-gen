@@ -4,15 +4,29 @@
 
 A Model Context Protocol (MCP) server for generating various types of assets including images, videos, audio, and 3D models for game development.
 
+**🎮 NEW: Hyperscape Integration** - Now optimized for generating assets for the [Hyperscape MMORPG](https://github.com/HyperscapeAI/hyperscape) with AI Gateway support!
+
 Three.js sample scene in [demo video](https://www.youtube.com/watch?v=KSVpJFqF5hg) located at [flux159/three-generator](https://github.com/Flux159/three-generator).
 
 ## Features
 
+### 🚀 AI Gateway Integration (NEW)
+- **Unified API**: Single interface for multiple AI providers (OpenAI, Google Gemini)
+- **Model Discovery**: Dynamically discover and select the best models
+- **Cost Optimization**: Automatic routing to cost-effective models
+- **Hyperscape Optimized**: Pre-configured for RuneScape-style low-poly assets
+- **Material Tiers**: Built-in bronze, steel, and mithril equipment variants
+- **Streaming Support**: Real-time progress updates during generation
+
+📖 **[Read the full AI Gateway Integration Guide](docs/AI_GATEWAY_INTEGRATION.md)**
+
+### Core Features
 - **Image Generation**: Support for multiple providers (OpenAI DALL-E, Google Gemini, Fal.ai)
 - **Video Generation**: Coming soon
-- **Audio Generation**: Coming soon  
+- **Audio Generation**: Coming soon
 - **3D Model Generation**: Generate 3D models using FAL.ai Trellis and Hunyuan3D 2.0
 - **Game Development Focus**: Optimized for creating game assets
+- **Hyperscape Tools**: 10+ specialized tools for MMORPG asset generation
 
 ## Installation
 

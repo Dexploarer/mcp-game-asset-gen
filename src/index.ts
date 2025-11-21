@@ -30,6 +30,10 @@ import {
   Model3DFormat,
   AVAILABLE_VARIANTS,
 } from './providers/model3dHelpers.js';
+// AI Gateway imports
+import { HYPERSCAPE_TOOLS, HYPERSCAPE_TOOL_HANDLERS } from './tools/hypescapeTools.js';
+import { MODEL_DISCOVERY_TOOLS, MODEL_DISCOVERY_HANDLERS } from './tools/modelDiscovery.js';
+import { gatewayGenerateImage, gatewayGenerateImageStreaming } from './providers/gatewayImageProviders.js';
 
 // Check environment variables for tool filtering
 const allowedToolsEnv = process.env.ALLOWED_TOOLS;
@@ -446,6 +450,94 @@ const allTools = [
       required: ['outputPath'],
     },
   },
+
+  // ===== AI GATEWAY TOOLS =====
+  {
+    name: 'gateway_generate_image',
+    description: `Generate images using AI Gateway with unified API for multiple providers.
+Supports OpenAI GPT-Image-1 and Google Gemini 3 Pro Image through a single interface.
+Perfect for Hyperscape game asset generation with automatic prompt enhancement.
+Use this for flexible model selection and cost optimization.`,
+    inputSchema: {
+      type: 'object',
+      properties: {
+        prompt: {
+          type: 'string',
+          description: 'Description of the image to generate',
+        },
+        outputPath: {
+          type: 'string',
+          description: 'Path where the generated image will be saved',
+        },
+        model: {
+          type: 'string',
+          description: 'Model to use (e.g., "google/gemini-3-pro-image", "openai/gpt-image-1"). Use gateway_list_models to see available models.',
+        },
+        assetType: {
+          type: 'string',
+          enum: ['character', 'weapon', 'armor', 'tool', 'resource', 'building'],
+          description: 'Type of game asset (for automatic prompt enhancement)',
+        },
+        style: {
+          type: 'string',
+          enum: ['runescapeLowPoly', 'marvelStyle', 'skyrimStyle', 'stylized'],
+          description: 'Art style (default: runescapeLowPoly for Hyperscape)',
+        },
+        materialTier: {
+          type: 'string',
+          enum: ['bronze', 'steel', 'mithril'],
+          description: 'Material tier for equipment (Hyperscape-specific)',
+        },
+      },
+      required: ['prompt', 'outputPath'],
+    },
+  },
+
+  {
+    name: 'gateway_generate_image_streaming',
+    description: `Generate images using AI Gateway with real-time streaming updates.
+Shows progress as the image is being generated. Same features as gateway_generate_image
+but with live progress feedback.`,
+    inputSchema: {
+      type: 'object',
+      properties: {
+        prompt: {
+          type: 'string',
+          description: 'Description of the image to generate',
+        },
+        outputPath: {
+          type: 'string',
+          description: 'Path where the generated image will be saved',
+        },
+        model: {
+          type: 'string',
+          description: 'Model to use (e.g., "google/gemini-3-pro-image")',
+        },
+        assetType: {
+          type: 'string',
+          enum: ['character', 'weapon', 'armor', 'tool', 'resource', 'building'],
+          description: 'Type of game asset',
+        },
+        style: {
+          type: 'string',
+          enum: ['runescapeLowPoly', 'marvelStyle', 'skyrimStyle', 'stylized'],
+          description: 'Art style',
+        },
+        materialTier: {
+          type: 'string',
+          enum: ['bronze', 'steel', 'mithril'],
+          description: 'Material tier',
+        },
+      },
+      required: ['prompt', 'outputPath'],
+    },
+  },
+
+  // ===== HYPERSCAPE-SPECIFIC TOOLS =====
+  ...HYPERSCAPE_TOOLS,
+
+  // ===== MODEL DISCOVERY TOOLS =====
+  ...MODEL_DISCOVERY_TOOLS,
 ];
 
 const server = new Server(
@@ -663,6 +755,77 @@ PROGRESS STAGES:
 - 50%: Processing with model
 - 90%: Finalizing result
 - 100%: Completed`,
+            },
+          ],
+        };
+      }
+
+      // ===== AI GATEWAY TOOLS =====
+      case 'gateway_generate_image': {
+        const result = await gatewayGenerateImage(args as any);
+        return {
+          content: [
+            {
+              type: 'text',
+              text: result,
+            },
+          ],
+        };
+      }
+
+      case 'gateway_generate_image_streaming': {
+        const result = await gatewayGenerateImageStreaming(args as any);
+        return {
+          content: [
+            {
+              type: 'text',
+              text: result,
+            },
+          ],
+        };
+      }
+
+      // ===== HYPERSCAPE-SPECIFIC TOOLS =====
+      case 'hyperscape_generate_character':
+      case 'hyperscape_generate_weapon':
+      case 'hyperscape_generate_armor':
+      case 'hyperscape_generate_building':
+      case 'hyperscape_generate_equipment_set':
+      case 'hyperscape_generate_npc':
+      case 'hyperscape_generate_resource':
+      case 'hyperscape_generate_tool':
+      case 'hyperscape_generate_enemy':
+      case 'hyperscape_generate_zone_concept': {
+        const handler = HYPERSCAPE_TOOL_HANDLERS[name];
+        if (!handler) {
+          throw new Error(`No handler found for Hyperscape tool: ${name}`);
+        }
+        const result = await handler(args);
+        return {
+          content: [
+            {
+              type: 'text',
+              text: result,
+            },
+          ],
+        };
+      }
+
+      // ===== MODEL DISCOVERY TOOLS =====
+      case 'gateway_list_models':
+      case 'gateway_get_model_info':
+      case 'gateway_list_image_models':
+      case 'gateway_recommend_model': {
+        const handler = MODEL_DISCOVERY_HANDLERS[name];
+        if (!handler) {
+          throw new Error(`No handler found for model discovery tool: ${name}`);
+        }
+        const result = await handler(args);
+        return {
+          content: [
+            {
+              type: 'text',
+              text: result,
             },
           ],
         };

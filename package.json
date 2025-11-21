@@ -38,7 +38,9 @@
   "author": "",
   "license": "MIT",
   "dependencies": {
+    "@ai-sdk/gateway": "^2.0.13",
     "@modelcontextprotocol/sdk": "^1.0.0",
+    "ai": "^5.0.98",
     "canvas": "^3.2.0",
     "dotenv": "^16.4.0"
   },
