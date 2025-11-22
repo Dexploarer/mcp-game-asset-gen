@@ -6,6 +6,7 @@ import {
   hunyuan3DGenerateSingleTurbo,
   hunyuan3DGenerateMultiTurbo,
   hunyuanWorldGenerate3D,
+  seed3DGenerate,
   type Model3DGenerationOptions,
   type Model3DGenerationResult,
   Model3DModel,
@@ -219,8 +220,8 @@ export const selectModelVariant = (
 ): Model3DVariant => {
   if (model === Model3DModel.TRELLIS) {
     return inputImageCount <= 1 ? Model3DVariant.SINGLE : Model3DVariant.MULTI;
-  } else if (model === Model3DModel.HUNYUAN_WORLD) {
-    // Hunyuan World only supports single image
+  } else if (model === Model3DModel.HUNYUAN_WORLD || model === Model3DModel.SEED3D) {
+    // Hunyuan World and Seed3D only support single image
     return Model3DVariant.SINGLE;
   } else {
     // Hunyuan3D variants
@@ -368,7 +369,17 @@ export const generate3DModel = async (
           format,
         });
         break;
-        
+
+      case 'seed3d':
+        // ByteDance Seed3D - high-fidelity single image to 3D with PBR textures
+        result = await seed3DGenerate({
+          prompt,
+          imagePath: finalInputPaths[0],
+          outputPath,
+          format,
+        });
+        break;
+
       default:
         throw new Error(`Unsupported 3D model: ${model}`);
     }
@@ -551,7 +562,7 @@ export const generate3DModelAsync = async (
             progress: 50,
             message: 'Processing with Hunyuan World...',
           });
-          
+
           // Hunyuan World only supports single image input
           result = await hunyuanWorldGenerate3D({
             prompt,
@@ -560,7 +571,22 @@ export const generate3DModelAsync = async (
             format,
           });
           break;
-          
+
+        case 'seed3d':
+          updateStatusFile(statusPath, {
+            progress: 50,
+            message: 'Processing with ByteDance Seed3D...',
+          });
+
+          // Seed3D - high-fidelity single image to 3D with PBR textures
+          result = await seed3DGenerate({
+            prompt,
+            imagePath: finalInputPaths[0],
+            outputPath,
+            format,
+          });
+          break;
+
         default:
           throw new Error(`Unsupported 3D model: ${model}`);
       }
@@ -626,8 +652,8 @@ export const validate3DModelOptions = (options: Model3DGenerationOptionsExtended
     throw new Error('Output path is required and cannot be empty');
   }
   
-  if (!['trellis', 'hunyuan3d', 'hunyuan-world'].includes(options.model)) {
-    throw new Error('Model must be one of: trellis, hunyuan3d, hunyuan-world');
+  if (!['trellis', 'hunyuan3d', 'hunyuan-world', 'seed3d'].includes(options.model)) {
+    throw new Error('Model must be one of: trellis, hunyuan3d, hunyuan-world, seed3d');
   }
   
   if (options.variant && !['single', 'multi', 'single-turbo', 'multi-turbo'].includes(options.variant)) {
@@ -645,6 +671,10 @@ export const validate3DModelOptions = (options: Model3DGenerationOptionsExtended
   
   if (options.model === 'hunyuan-world' && options.variant !== 'single') {
     throw new Error('Hunyuan World model only supports single variant');
+  }
+
+  if (options.model === 'seed3d' && options.variant !== 'single') {
+    throw new Error('Seed3D model only supports single variant');
   }
   
   // If no input images and no prompt, validation fails
@@ -684,7 +714,14 @@ export const getDefault3DOptions = (model: Model3DModel): Partial<Model3DGenerat
         model: Model3DModel.HUNYUAN_WORLD,
         variant: Model3DVariant.SINGLE, // Only supports single
       };
-      
+
+    case Model3DModel.SEED3D:
+      return {
+        ...baseDefaults,
+        model: Model3DModel.SEED3D,
+        variant: Model3DVariant.SINGLE, // Only supports single
+      };
+
     default:
       throw new Error(`No default options available for model: ${model}`);
   }

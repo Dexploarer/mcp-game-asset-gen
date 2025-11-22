@@ -15,7 +15,8 @@ const execFileAsync = promisify(execFile);
 export enum Model3DModel {
   TRELLIS = 'trellis',
   HUNYUAN3D = 'hunyuan3d',
-  HUNYUAN_WORLD = 'hunyuan-world'
+  HUNYUAN_WORLD = 'hunyuan-world',
+  SEED3D = 'seed3d'
 }
 
 export enum Model3DVariant {
@@ -34,14 +35,16 @@ export enum Model3DFormat {
 export const AVAILABLE_VARIANTS = {
   [Model3DModel.TRELLIS]: [Model3DVariant.SINGLE, Model3DVariant.MULTI],
   [Model3DModel.HUNYUAN3D]: [Model3DVariant.SINGLE, Model3DVariant.MULTI, Model3DVariant.SINGLE_TURBO, Model3DVariant.MULTI_TURBO],
-  [Model3DModel.HUNYUAN_WORLD]: [Model3DVariant.SINGLE] // Only single variant for world model
+  [Model3DModel.HUNYUAN_WORLD]: [Model3DVariant.SINGLE], // Only single variant for world model
+  [Model3DModel.SEED3D]: [Model3DVariant.SINGLE] // Seed3D is single-image-to-3D
 } as const;
 
 // Default variants for each model (ensures good user experience)
 export const DEFAULT_VARIANTS = {
   [Model3DModel.TRELLIS]: Model3DVariant.SINGLE,
   [Model3DModel.HUNYUAN3D]: Model3DVariant.SINGLE,
-  [Model3DModel.HUNYUAN_WORLD]: Model3DVariant.SINGLE
+  [Model3DModel.HUNYUAN_WORLD]: Model3DVariant.SINGLE,
+  [Model3DModel.SEED3D]: Model3DVariant.SINGLE
 } as const;
 
 // 3D Model generation interfaces
@@ -69,6 +72,7 @@ export interface Model3DGenerationResult {
     faces?: number;
     file_size?: number;
     format?: string;
+    has_pbr_textures?: boolean;
   };
   parameters: any;
   auto_generated_references?: string[];
@@ -618,6 +622,92 @@ export const hunyuanWorldGenerate3D = async (args: {
     input_images: [args.imagePath],
     generation_time: response.timings?.inference,
     model_info: modelInfo,
+    parameters: body
+  };
+};
+
+// ByteDance Seed3D - High-fidelity single image to 3D
+// Features: PBR textures (albedo, metalness, roughness), UV-mapped, simulation-grade
+export const seed3DGenerate = async (args: {
+  prompt?: string;
+  imagePath: string;
+  outputPath: string;
+  format?: 'glb' | 'gltf';
+  face_limit?: number; // Limit number of faces in mesh
+  texture_size?: 512 | 1024 | 2048 | 4096;
+  render_video?: boolean; // Generate a turntable video
+  seed?: number;
+}): Promise<Model3DGenerationResult> => {
+  const apiKey = getFalAIKey();
+
+  // Convert image to base64 URI if it's a file path
+  let imageUri = args.imagePath;
+  if (!args.imagePath.startsWith('data:')) {
+    imageUri = `data:image/png;base64,${encodeImageToBase64(args.imagePath)}`;
+  }
+
+  const body: any = {
+    image_url: imageUri,
+  };
+
+  // Add optional parameters
+  if (args.face_limit !== undefined) {
+    body.face_limit = args.face_limit;
+  }
+  if (args.texture_size !== undefined) {
+    body.texture_size = args.texture_size;
+  }
+  if (args.render_video !== undefined) {
+    body.render_video = args.render_video;
+  }
+  if (args.seed !== undefined) {
+    body.seed = args.seed;
+  }
+
+  const headers = {
+    'Authorization': `Key ${apiKey}`,
+    'Content-Type': 'application/json'
+  };
+
+  const endpoint = 'https://fal.run/fal-ai/bytedance/seed3d/image-to-3d';
+
+  const response = await makeHTTPRequest(endpoint, 'POST', headers, body);
+
+  if (response.error || response.detail) {
+    throw new Error(`Seed3D API error: ${response.error?.message || JSON.stringify(response.detail || response.error)}`);
+  }
+
+  // Download and save the 3D model
+  const savedPaths: string[] = [];
+
+  // Seed3D returns model_mesh with url
+  if (response.model_mesh && response.model_mesh.url) {
+    const modelPath = await downloadAndSave3DModel(response.model_mesh.url, args.outputPath);
+    savedPaths.push(modelPath);
+  } else if (response.model_url) {
+    // Fallback to model_url if present
+    const modelPath = await downloadAndSave3DModel(response.model_url, args.outputPath);
+    savedPaths.push(modelPath);
+  } else {
+    throw new Error('No model mesh URL in Seed3D response');
+  }
+
+  // Get model information
+  const modelInfo = await getModel3DInfo(args.outputPath);
+
+  return {
+    provider: 'FAL.ai',
+    model: 'seed3d',
+    variant: 'single',
+    savedPaths: savedPaths,
+    prompt_used: args.prompt,
+    input_images: [args.imagePath],
+    generation_time: response.timings?.inference,
+    model_info: {
+      ...modelInfo,
+      // Seed3D provides PBR textures
+      has_pbr_textures: true,
+    },
     parameters: body
   };
 };
