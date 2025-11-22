@@ -720,6 +720,7 @@ export const seed3DGenerate = async (args: {
 const pollMeshyTaskStatus = async (
   taskId: string,
   apiKey: string,
+  basePath: string = 'image-to-3d', // Use 'image-to-3d/multi-view' for multi-view tasks
   maxAttempts: number = 120, // 10 minutes with 5s intervals
   pollInterval: number = 5000
 ): Promise<any> => {
@@ -729,7 +730,7 @@ const pollMeshyTaskStatus = async (
 
   for (let attempt = 0; attempt < maxAttempts; attempt++) {
     const response = await makeHTTPRequest(
-      `https://api.meshy.ai/openapi/v1/image-to-3d/${taskId}`,
+      `https://api.meshy.ai/openapi/v1/${basePath}/${taskId}`,
       'GET',
       headers
     );
@@ -929,8 +930,8 @@ export const meshyGenerateMulti = async (args: {
     throw new Error('No task ID returned from Meshy Multi API');
   }
 
-  // Poll for completion
-  const result = await pollMeshyTaskStatus(taskId, apiKey);
+  // Poll for completion using the multi-view endpoint
+  const result = await pollMeshyTaskStatus(taskId, apiKey, 'image-to-3d/multi-view');
 
   // Download and save the 3D model
   const savedPaths: string[] = [];

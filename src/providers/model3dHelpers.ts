@@ -714,13 +714,18 @@ export const validate3DModelOptions = (options: Model3DGenerationOptionsExtended
   if (options.model === 'trellis' && options.variant?.includes('turbo')) {
     throw new Error('Trellis model does not support turbo variants');
   }
-  
-  if (options.model === 'hunyuan-world' && options.variant !== 'single') {
+
+  // Only reject explicitly set invalid variants (undefined is OK, defaults will apply)
+  if (options.model === 'hunyuan-world' && options.variant && options.variant !== 'single') {
     throw new Error('Hunyuan World model only supports single variant');
   }
 
-  if (options.model === 'seed3d' && options.variant !== 'single') {
+  if (options.model === 'seed3d' && options.variant && options.variant !== 'single') {
     throw new Error('Seed3D model only supports single variant');
+  }
+
+  if (options.model === 'meshy' && options.variant?.includes('turbo')) {
+    throw new Error('Meshy model does not support turbo variants');
   }
   
   // If no input images and no prompt, validation fails
@@ -793,15 +798,16 @@ export const generate3DModelSmart = async (
   model: Model3DModel = Model3DModel.HUNYUAN3D,
   options: Partial<Model3DGenerationOptionsExtended> = {}
 ): Promise<Model3DGenerationResult> => {
+  // Let merge3DWithDefaults set the appropriate variant for each model
+  // (e.g., seed3d/hunyuan-world only support 'single')
   const fullOptions: Model3DGenerationOptionsExtended = merge3DWithDefaults({
     prompt,
     outputPath,
     model,
-    variant: Model3DVariant.MULTI, // Ensure variant is always set
     ...options,
   });
-  
+
   validate3DModelOptions(fullOptions);
-  
+
   return await generate3DModel(fullOptions);
 };
