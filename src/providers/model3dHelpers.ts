@@ -7,6 +7,8 @@ import {
   hunyuan3DGenerateMultiTurbo,
   hunyuanWorldGenerate3D,
   seed3DGenerate,
+  meshyGenerateSingle,
+  meshyGenerateMulti,
   type Model3DGenerationOptions,
   type Model3DGenerationResult,
   Model3DModel,
@@ -218,7 +220,8 @@ export const selectModelVariant = (
   inputImageCount: number,
   preferTurbo: boolean = false
 ): Model3DVariant => {
-  if (model === Model3DModel.TRELLIS) {
+  if (model === Model3DModel.TRELLIS || model === Model3DModel.MESHY) {
+    // Trellis and Meshy support single and multi
     return inputImageCount <= 1 ? Model3DVariant.SINGLE : Model3DVariant.MULTI;
   } else if (model === Model3DModel.HUNYUAN_WORLD || model === Model3DModel.SEED3D) {
     // Hunyuan World and Seed3D only support single image
@@ -380,10 +383,29 @@ export const generate3DModel = async (
         });
         break;
 
+      case 'meshy':
+        // Meshy - high quality mesh with optional textures and remeshing
+        if (actualVariant === 'single') {
+          result = await meshyGenerateSingle({
+            prompt,
+            imagePath: finalInputPaths[0],
+            outputPath,
+            format,
+          });
+        } else {
+          result = await meshyGenerateMulti({
+            prompt,
+            imagePaths: finalInputPaths.slice(0, 4), // Max 4 images
+            outputPath,
+            format,
+          });
+        }
+        break;
+
       default:
         throw new Error(`Unsupported 3D model: ${model}`);
     }
-    
+
     // Add metadata about automatic reference generation
     if (generatedReferences.length > 0) {
       result.auto_generated_references = generatedReferences;
@@ -587,6 +609,30 @@ export const generate3DModelAsync = async (
           });
           break;
 
+        case 'meshy':
+          updateStatusFile(statusPath, {
+            progress: 50,
+            message: 'Processing with Meshy...',
+          });
+
+          // Meshy - high quality mesh with optional textures and remeshing
+          if (actualVariant === 'single') {
+            result = await meshyGenerateSingle({
+              prompt,
+              imagePath: finalInputPaths[0],
+              outputPath,
+              format,
+            });
+          } else {
+            result = await meshyGenerateMulti({
+              prompt,
+              imagePaths: finalInputPaths.slice(0, 4), // Max 4 images
+              outputPath,
+              format,
+            });
+          }
+          break;
+
         default:
           throw new Error(`Unsupported 3D model: ${model}`);
       }
@@ -652,8 +698,8 @@ export const validate3DModelOptions = (options: Model3DGenerationOptionsExtended
     throw new Error('Output path is required and cannot be empty');
   }
   
-  if (!['trellis', 'hunyuan3d', 'hunyuan-world', 'seed3d'].includes(options.model)) {
-    throw new Error('Model must be one of: trellis, hunyuan3d, hunyuan-world, seed3d');
+  if (!['trellis', 'hunyuan3d', 'hunyuan-world', 'seed3d', 'meshy'].includes(options.model)) {
+    throw new Error('Model must be one of: trellis, hunyuan3d, hunyuan-world, seed3d, meshy');
   }
   
   if (options.variant && !['single', 'multi', 'single-turbo', 'multi-turbo'].includes(options.variant)) {
@@ -720,6 +766,13 @@ export const getDefault3DOptions = (model: Model3DModel): Partial<Model3DGenerat
         ...baseDefaults,
         model: Model3DModel.SEED3D,
         variant: Model3DVariant.SINGLE, // Only supports single
+      };
+
+    case Model3DModel.MESHY:
+      return {
+        ...baseDefaults,
+        model: Model3DModel.MESHY,
+        variant: Model3DVariant.SINGLE, // Default to single, supports multi
       };
 
     default:

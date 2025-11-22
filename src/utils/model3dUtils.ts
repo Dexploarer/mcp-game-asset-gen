@@ -2,9 +2,10 @@ import { writeFileSync, mkdirSync, statSync } from 'fs';
 import { execFile } from 'child_process';
 import { promisify } from 'util';
 import path from 'path';
-import { 
-  makeHTTPRequest, 
+import {
+  makeHTTPRequest,
   getFalAIKey,
+  getMeshyKey,
   downloadAndSaveImage,
   encodeImageToBase64
 } from './imageUtils.js';
@@ -16,7 +17,8 @@ export enum Model3DModel {
   TRELLIS = 'trellis',
   HUNYUAN3D = 'hunyuan3d',
   HUNYUAN_WORLD = 'hunyuan-world',
-  SEED3D = 'seed3d'
+  SEED3D = 'seed3d',
+  MESHY = 'meshy'
 }
 
 export enum Model3DVariant {
@@ -36,7 +38,8 @@ export const AVAILABLE_VARIANTS = {
   [Model3DModel.TRELLIS]: [Model3DVariant.SINGLE, Model3DVariant.MULTI],
   [Model3DModel.HUNYUAN3D]: [Model3DVariant.SINGLE, Model3DVariant.MULTI, Model3DVariant.SINGLE_TURBO, Model3DVariant.MULTI_TURBO],
   [Model3DModel.HUNYUAN_WORLD]: [Model3DVariant.SINGLE], // Only single variant for world model
-  [Model3DModel.SEED3D]: [Model3DVariant.SINGLE] // Seed3D is single-image-to-3D
+  [Model3DModel.SEED3D]: [Model3DVariant.SINGLE], // Seed3D is single-image-to-3D
+  [Model3DModel.MESHY]: [Model3DVariant.SINGLE, Model3DVariant.MULTI] // Meshy supports 1-4 images
 } as const;
 
 // Default variants for each model (ensures good user experience)
@@ -44,7 +47,8 @@ export const DEFAULT_VARIANTS = {
   [Model3DModel.TRELLIS]: Model3DVariant.SINGLE,
   [Model3DModel.HUNYUAN3D]: Model3DVariant.SINGLE,
   [Model3DModel.HUNYUAN_WORLD]: Model3DVariant.SINGLE,
-  [Model3DModel.SEED3D]: Model3DVariant.SINGLE
+  [Model3DModel.SEED3D]: Model3DVariant.SINGLE,
+  [Model3DModel.MESHY]: Model3DVariant.SINGLE
 } as const;
 
 // 3D Model generation interfaces
@@ -707,6 +711,256 @@ export const seed3DGenerate = async (args: {
       ...modelInfo,
       // Seed3D provides PBR textures
       has_pbr_textures: true,
+    },
+    parameters: body
+  };
+};
+
+// Helper function to poll Meshy task status
+const pollMeshyTaskStatus = async (
+  taskId: string,
+  apiKey: string,
+  maxAttempts: number = 120, // 10 minutes with 5s intervals
+  pollInterval: number = 5000
+): Promise<any> => {
+  const headers = {
+    'Authorization': `Bearer ${apiKey}`,
+  };
+
+  for (let attempt = 0; attempt < maxAttempts; attempt++) {
+    const response = await makeHTTPRequest(
+      `https://api.meshy.ai/openapi/v1/image-to-3d/${taskId}`,
+      'GET',
+      headers
+    );
+
+    if (response.error) {
+      throw new Error(`Meshy API error: ${response.error.message || JSON.stringify(response.error)}`);
+    }
+
+    const status = response.status;
+
+    if (status === 'SUCCEEDED') {
+      return response;
+    } else if (status === 'FAILED' || status === 'EXPIRED') {
+      throw new Error(`Meshy task ${status}: ${response.task_error?.message || 'Unknown error'}`);
+    }
+
+    // Still processing, wait and poll again
+    await new Promise(resolve => setTimeout(resolve, pollInterval));
+  }
+
+  throw new Error('Meshy task timed out after maximum polling attempts');
+};
+
+// Meshy Image-to-3D - Single image
+// Features: High quality mesh, optional textures, remeshing
+export const meshyGenerateSingle = async (args: {
+  prompt?: string;
+  imagePath: string;
+  outputPath: string;
+  format?: 'glb' | 'gltf' | 'fbx' | 'obj' | 'usdz';
+  should_remesh?: boolean;
+  should_texture?: boolean;
+  target_polycount?: number;
+  topology?: 'quad' | 'triangle';
+  ai_model?: 'meshy-6' | 'meshy-5' | 'meshy-4';
+}): Promise<Model3DGenerationResult> => {
+  const apiKey = getMeshyKey();
+
+  // Convert image to base64 URI if it's a file path
+  let imageUri = args.imagePath;
+  if (!args.imagePath.startsWith('data:') && !args.imagePath.startsWith('http')) {
+    imageUri = `data:image/png;base64,${encodeImageToBase64(args.imagePath)}`;
+  }
+
+  const body: any = {
+    image_url: imageUri,
+    enable_pbr: true, // Enable PBR textures
+  };
+
+  // Add optional parameters
+  if (args.ai_model !== undefined) {
+    body.ai_model = args.ai_model;
+  }
+  if (args.should_remesh !== undefined) {
+    body.should_remesh = args.should_remesh;
+  }
+  if (args.should_texture !== undefined) {
+    body.should_texture = args.should_texture;
+  }
+  if (args.target_polycount !== undefined) {
+    body.target_polycount = args.target_polycount;
+  }
+  if (args.topology !== undefined) {
+    body.topology = args.topology;
+  }
+
+  const headers = {
+    'Authorization': `Bearer ${apiKey}`,
+    'Content-Type': 'application/json'
+  };
+
+  // Create the task
+  const createResponse = await makeHTTPRequest(
+    'https://api.meshy.ai/openapi/v1/image-to-3d',
+    'POST',
+    headers,
+    body
+  );
+
+  if (createResponse.error) {
+    throw new Error(`Meshy API error: ${createResponse.error.message || JSON.stringify(createResponse.error)}`);
+  }
+
+  const taskId = createResponse.result;
+  if (!taskId) {
+    throw new Error('No task ID returned from Meshy API');
+  }
+
+  // Poll for completion
+  const result = await pollMeshyTaskStatus(taskId, apiKey);
+
+  // Download and save the 3D model
+  const savedPaths: string[] = [];
+
+  // Meshy returns model_urls with different formats
+  const format = args.format || 'glb';
+  const modelUrl = result.model_urls?.[format] || result.model_urls?.glb;
+
+  if (modelUrl) {
+    const modelPath = await downloadAndSave3DModel(modelUrl, args.outputPath);
+    savedPaths.push(modelPath);
+  } else {
+    throw new Error('No model URL in Meshy response');
+  }
+
+  // Get model information
+  const modelInfo = await getModel3DInfo(args.outputPath);
+
+  return {
+    provider: 'Meshy',
+    model: args.ai_model || 'meshy-6',
+    variant: 'single',
+    savedPaths: savedPaths,
+    prompt_used: args.prompt,
+    input_images: [args.imagePath],
+    generation_time: result.finished_at ?
+      (new Date(result.finished_at).getTime() - new Date(result.created_at).getTime()) / 1000 : undefined,
+    model_info: {
+      ...modelInfo,
+      has_pbr_textures: args.should_texture !== false,
+    },
+    parameters: body
+  };
+};
+
+// Meshy Multi-Image-to-3D (1-4 images)
+// Features: Multiple viewpoints for better accuracy
+export const meshyGenerateMulti = async (args: {
+  prompt?: string;
+  imagePaths: string[];
+  outputPath: string;
+  format?: 'glb' | 'gltf' | 'fbx' | 'obj' | 'usdz';
+  should_remesh?: boolean;
+  should_texture?: boolean;
+  target_polycount?: number;
+  topology?: 'quad' | 'triangle';
+  ai_model?: 'meshy-6-preview' | 'meshy-5';
+}): Promise<Model3DGenerationResult> => {
+  const apiKey = getMeshyKey();
+
+  if (args.imagePaths.length < 1 || args.imagePaths.length > 4) {
+    throw new Error('Meshy Multi-Image requires 1-4 images');
+  }
+
+  // Convert images to base64 URIs if they are file paths
+  const imageUris = await Promise.all(
+    args.imagePaths.map(async (imgPath) => {
+      if (imgPath.startsWith('data:') || imgPath.startsWith('http')) {
+        return imgPath;
+      } else {
+        return `data:image/png;base64,${encodeImageToBase64(imgPath)}`;
+      }
+    })
+  );
+
+  const body: any = {
+    image_urls: imageUris,
+    enable_pbr: true,
+  };
+
+  // Add optional parameters
+  if (args.ai_model !== undefined) {
+    body.ai_model = args.ai_model;
+  }
+  if (args.should_remesh !== undefined) {
+    body.should_remesh = args.should_remesh;
+  }
+  if (args.should_texture !== undefined) {
+    body.should_texture = args.should_texture;
+  }
+  if (args.target_polycount !== undefined) {
+    body.target_polycount = args.target_polycount;
+  }
+  if (args.topology !== undefined) {
+    body.topology = args.topology;
+  }
+
+  const headers = {
+    'Authorization': `Bearer ${apiKey}`,
+    'Content-Type': 'application/json'
+  };
+
+  // Create the task
+  const createResponse = await makeHTTPRequest(
+    'https://api.meshy.ai/openapi/v1/image-to-3d/multi-view',
+    'POST',
+    headers,
+    body
+  );
+
+  if (createResponse.error) {
+    throw new Error(`Meshy Multi API error: ${createResponse.error.message || JSON.stringify(createResponse.error)}`);
+  }
+
+  const taskId = createResponse.result;
+  if (!taskId) {
+    throw new Error('No task ID returned from Meshy Multi API');
+  }
+
+  // Poll for completion
+  const result = await pollMeshyTaskStatus(taskId, apiKey);
+
+  // Download and save the 3D model
+  const savedPaths: string[] = [];
+
+  // Meshy returns model_urls with different formats
+  const format = args.format || 'glb';
+  const modelUrl = result.model_urls?.[format] || result.model_urls?.glb;
+
+  if (modelUrl) {
+    const modelPath = await downloadAndSave3DModel(modelUrl, args.outputPath);
+    savedPaths.push(modelPath);
+  } else {
+    throw new Error('No model URL in Meshy Multi response');
+  }
+
+  // Get model information
+  const modelInfo = await getModel3DInfo(args.outputPath);
+
+  return {
+    provider: 'Meshy',
+    model: args.ai_model || 'meshy-5',
+    variant: 'multi',
+    savedPaths: savedPaths,
+    prompt_used: args.prompt,
+    input_images: args.imagePaths,
+    generation_time: result.finished_at ?
+      (new Date(result.finished_at).getTime() - new Date(result.created_at).getTime()) / 1000 : undefined,
+    model_info: {
+      ...modelInfo,
+      has_pbr_textures: args.should_texture !== false,
     },
     parameters: body
   };

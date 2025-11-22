@@ -38,6 +38,14 @@ export const getFalAIKey = (): string => {
   return key;
 };
 
+export const getMeshyKey = (): string => {
+  const key = process.env.MESHY_API_KEY;
+  if (!key) {
+    throw new Error("MESHY_API_KEY environment variable is required");
+  }
+  return key;
+};
+
 // Generic HTTP request helper
 export const makeHTTPRequest = async (
   url: string, 
