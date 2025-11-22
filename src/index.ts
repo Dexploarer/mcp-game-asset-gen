@@ -390,7 +390,7 @@ const allTools = [
 // Use image_to_3d_async instead for reliable background processing
   {
     name: 'image_to_3d_async',
-    description: 'Generate 3D models from images using advanced AI models (Trellis, Hunyuan3D 2.0, Hunyuan World) with automatic reference image generation and background processing. Returns a status file path immediately for progress tracking to avoid MCP timeouts. This is the recommended method for all 3D generation tasks.',
+    description: 'Generate 3D models from images using advanced AI models (Trellis, Hunyuan3D 2.0, Hunyuan World, Seed3D, Meshy) with automatic reference image generation and background processing. Returns a status file path immediately for progress tracking to avoid MCP timeouts. This is the recommended method for all 3D generation tasks.',
     inputSchema: {
       type: 'object',
       properties: {
@@ -410,7 +410,7 @@ const allTools = [
         model: {
           type: 'string',
           enum: Object.values(Model3DModel),
-          description: '3D generation model: hunyuan3d (best quality, supports textures), trellis (good for objects), hunyuan-world (for scenes/worlds). Default: hunyuan3d',
+          description: '3D generation model: seed3d (highest fidelity with PBR textures), meshy (high quality with remeshing, 1-4 images), hunyuan3d (best quality), trellis (good for objects), hunyuan-world (for scenes/worlds). Default: hunyuan3d',
         },
         variant: {
           type: 'string',
